@@ -79,10 +79,14 @@ ShowPValues <- function(model.list) {
 }
 
 
-## Part 1) Loading, exploring, and preprocessing the data
+## Part 1) Loading and preprocessing the data
 
 data("mtcars")  # Load the mt cars data set into workspace as an object mtcars
-mtcars <- as_tibble(mtcars)  # Convert from data frame to a tbl_df object
+car.names <- attributes(mtcars)$row.names  # Extract row names
+mtcars <- as_tibble(mtcars) %>%  # Convert from data frame to a tbl_df object
+  mutate(Vehicle = car.names) %>%  # Add column for the car names
+  select(Vehicle, mpg:carb)  # Reorder the columns
+rm(car.names)
 #print(str(mtcars))  # Check out the variables and preview some values
 # The variables are mostly self-explanatory but checking the help file is useful
 # mpg	= Miles/(US) gallon
@@ -97,7 +101,7 @@ mtcars <- as_tibble(mtcars)  # Convert from data frame to a tbl_df object
 # gear = Number of forward gears
 # carb = Number of carburetors
 
-# All of the variables are originally loaded as numeric, but some are
+# All of the original variables come through as numeric, but some are
 # categorical and others are discrete. The categorical variables should be
 # converted to factors, and the discrete variables should be assessed.
 #par(mfrow = c(3, 2))  # Setup plot space
@@ -125,9 +129,48 @@ mtcars <- mtcars %>%
 # to work with them by the names those values represent:
 levels(mtcars$vs) <- c("V-shaped", "Straight")
 levels(mtcars$am) <- c("Automatic", "Manual")
-    
-# Make some plots to check out the data
+
+
+# Part 2) Exploratory Data Analysis
+
+# Things to check:
+# 1. Check for missing values
+# 2. Check variation of variables
+# 3. Check covariation of variables
+
+# 1. Check for missing values
+#print(summary(mtcars))  # No NA values
+
+# 2. Check variation of variables
+# Things to consider:
+# a. What values are common? Why?
+# b. What values are rare? Why?
+# c. Are there any unusual values? Why?
+# d. Are there any patterns? Why.
+
+# From the summary above, one can see disp, hp, and carb have means > median
 par(mfrow = c(1, 2))  # Setup plot space
+#hist(mtcars$mpg)  # Nothing unusual, fewer cars in 25 bin could be noise
+#plot(as.factor(mtcars$cyl))  # Only three possible values: 4, 6, and 8
+#hist(mtcars$disp)  # Right skew/flat with 4 obs per bin of 50 wide
+#hist(mtcars$hp)  # Right skew, fewer observations of high hp
+#hist(mtcars$drat)  # Looks normally distributed
+#hist(mtcars$wt)  # Only one car with weight between 4k and 5k, and then 3 at 5k
+#hist(mtcars$qsec)  # Looks normally distributed
+# Engine shape is fairly evenly split: 18 & 14
+# Transmission type is faily evenly split: 19 & 13
+# Gear is mostly 3s and 4s, with only 5 observations in the 5 gear category
+#plot(as.factor(mtcars$carb))  # Nearly all 1s, 2s, and 4s, then 1 each at 6 & 8
+
+# 2. Check covariation of variables
+# Things to consider:
+# a. Could the pattern be due to chance?
+# b. What relationship is implied by the pattern?
+# c. How strong is the relationship?
+# d. What other variables might be affecting the relationship?
+# e. Does the relationship change for subgroups of the data?
+
+# First consider the original question of how trans type relates to mpg:
 #boxplot(mtcars$mpg ~ mtcars$am, ylab = "mpg [mpg]")  # mpg vs trans type
 #boxplot(mtcars$wt ~ mtcars$am, ylab = "weight [klbs]")  # wt vs. trans type
 # In the first plot above one could jump to the conclusion that mpg is clearly
@@ -135,20 +178,42 @@ par(mfrow = c(1, 2))  # Setup plot space
 # manual transmission vehicles tend to be lighter in this dataset, and common
 # sense suggests that mpg should be higher for lower weight vehicles. Many of
 # these variables can be expected to correlate with mpg and/or with each other.
-# The regression model must correct for these confounding effects and correctly
+# The regression model must correct for these interactions and correctly
 # isolate the effect of the transmission type on fuel economy.
 
-# Exploratory plots of mpg
-#plot(mtcars$mpg ~ mtcars$disp)
-#plot(mtcars$mpg ~ mtcars$hp)
-#plot(mtcars$mpg ~ mtcars$drat)
-#plot(mtcars$mpg ~ mtcars$wt)
-#plot(mtcars$mpg ~ mtcars$qsec)
-#boxplot(mtcars$mpg ~ mtcars$vs, ylab = "mpg [mpg]")
+# Check how mpg varies with the other variables
+# It was shown above that mpg decreases with number of cylinders, as expected
+#plot(mtcars$mpg ~ mtcars$disp)  # Negative slope, to be expected
+#plot(mtcars$mpg ~ mtcars$hp)  # Negative slope, to be expected
+#plot(mtcars$mpg ~ mtcars$drat)  # Positively sloped, opposite of expected
+#plot(mtcars$mpg ~ mtcars$wt)  # Negative slope, to be expected
+#plot(mtcars$mpg ~ mtcars$qsec)  # Generally positive, faster cars consume more
+#plot(mtcars$mpg ~ mtcars$vs)  # Straight appears to have a significantly higher
+# mpg, but such a strong trend is not expected
+# It was shown above that mpg appears higher for manual cars, but this could be
+# misleading based on the other factors
+# It was shown above that there doesnt appear to be a strong trend with mpg vs
+# number of gears, but one isn't really expected either
+
+# Follow up on a few interesting notes from above
+# Why is mpg positively sloped with drat?
+#plot(mtcars$wt ~ mtcars$drat)  # Negatively sloped, opposite of expected
+#test <- lm(mpg ~ drat, data = mtcars)  # drat coefficient = 7.678
+#test2 <- lm(mpg ~ drat + wt, data = mtcars)  # drat coefficient = 1.442
+# Controlling for weight explains much of the effect of drat, but the slope is
+# still positive, still unsure what explains this
+#rm(test, test2)
+# Now check why mpg shows such a strong response to engine shape
+#plot(mtcars$wt ~ mtcars$vs)  # The v-shaped cars are noticebly heavier
+#test <- lm(mpg ~ vs, data = mtcars)  # Straight coefficient is 7.94
+#test2 <- lm(mpg ~ vs + wt, data = mtcars)  # Straight coefficient is 3.15
+#rm(test, test2)
+# Controlling for weight explains much of the effect of vs, but there is still a
+# noticeable difference in mpg, perhaps further investigation is needed
 
 # It is useful to pause here and think of the ways in which the variables might
-# relate to each other and fuel economy:
-# - By definition displacement = effective cylinder volume * number of cylinders
+# relate to each other to identify potential interaction effects:
+# - By definition, displacement = effective cylinder volume * number of cyls
 # so the cyl variable will have little use in this analysis since any
 # information it contains will already be contained in displacement
 # https://en.wikipedia.org/wiki/Engine_displacement
@@ -162,6 +227,7 @@ par(mfrow = c(1, 2))  # Setup plot space
 # Checking this data set shows that hp is positively correlated with wt.
 # - Rear axle ratio can be expected to correlate with fuel economy
 # https://shop.advanceautoparts.com/r/advice/car-technology/get-to-know-gear-ratios-and-how-they-affect-acceleration-and-mileage
+# https://www.edmunds.com/car-buying/how-to-choose-the-right-axle-ratio-for-your-pickup-truck.html
 # - Weight can be expected to correlate with fuel economy
 # - Quarter mile time is a result of many features of the car similar to mpg,
 # while it can be expected to correlate with mpg, it is likely to be very
@@ -170,15 +236,17 @@ par(mfrow = c(1, 2))  # Setup plot space
 # correlations with fuel economy
 
 # Exploratory plots of interactions
-#boxplot(mtcars$disp ~ mtcars$am, ylab = "Displacement [in^3]") 
-#plot(mtcars$hp ~ mtcars$disp)
-#plot(mtcars$hp ~ mtcars$wt)
-#boxplot(mtcars$hp ~ mtcars$am, ylab = "Gross Horsepower [hp]")
-#boxplot(mtcars$drat ~ mtcars$am, ylab = "Rear Axle Ratio") 
-#boxplot(mtcars$qsec ~ mtcars$am, ylab = "Quarter Mile Time [s]")
+plot(mtcars$disp ~ mtcars$am) 
+plot(mtcars$hp ~ mtcars$disp)
+plot(mtcars$hp ~ mtcars$wt)
+plot(mtcars$hp ~ mtcars$am)
+plot(mtcars$drat ~ mtcars$am) 
+plot(mtcars$qsec ~ mtcars$am)
+
+
+# Part 3) Model Selection
 
 # Build a model using the backward elimination method
-#fit.all <- lm(mpg ~ ., data = mtcars)  # Fit a model of all variables, no inter.
 #fit.all <- lm(mpg ~ cyl + disp + hp + drat + wt + qsec + vs + am + gear + carb,
 #              data = mtcars)
 #print(GetMaxPVariable(fit.all))  # cyl
@@ -223,31 +291,31 @@ par(mfrow = c(1, 2))  # Setup plot space
 #print(summary(fit.old2a))  # All variables have significant p-values
 
 # Build a model using forward selection without interaction variables
-fit.f0 <- lm(mpg ~ cyl, data = mtcars)
-fit.f1 <- lm(mpg ~ disp, data = mtcars)
-fit.f2 <- lm(mpg ~ hp, data = mtcars)
-fit.f3 <- lm(mpg ~ drat, data = mtcars)
-fit.f4 <- lm(mpg ~ wt, data = mtcars)
-fit.f5 <- lm(mpg ~ qsec, data = mtcars)
-fit.f6 <- lm(mpg ~ vs, data = mtcars)
-fit.f7 <- lm(mpg ~ am, data = mtcars)
-fit.f8 <- lm(mpg ~ gear, data = mtcars)
-fit.f9 <- lm(mpg ~ carb, data = mtcars)
-models.f0 <- list(fit.f0, fit.f1, fit.f2, fit.f3, fit.f4, fit.f5, fit.f6,
-                  fit.f7, fit.f8, fit.f9)
+#fit.f0 <- lm(mpg ~ cyl, data = mtcars)
+#fit.f1 <- lm(mpg ~ disp, data = mtcars)
+#fit.f2 <- lm(mpg ~ hp, data = mtcars)
+#fit.f3 <- lm(mpg ~ drat, data = mtcars)
+#fit.f4 <- lm(mpg ~ wt, data = mtcars)
+#fit.f5 <- lm(mpg ~ qsec, data = mtcars)
+#fit.f6 <- lm(mpg ~ vs, data = mtcars)
+#fit.f7 <- lm(mpg ~ am, data = mtcars)
+#fit.f8 <- lm(mpg ~ gear, data = mtcars)
+#fit.f9 <- lm(mpg ~ carb, data = mtcars)
+#models.f0 <- list(fit.f0, fit.f1, fit.f2, fit.f3, fit.f4, fit.f5, fit.f6,
+#                  fit.f7, fit.f8, fit.f9)
 #print(ShowPValues(models.f0))  # wt has the lowest p-value
-fit.f10 <- lm(mpg ~ wt + cyl, data = mtcars)
-fit.f11 <- lm(mpg ~ wt + disp, data = mtcars)
-fit.f12 <- lm(mpg ~ wt + hp, data = mtcars)
-fit.f13 <- lm(mpg ~ wt + drat, data = mtcars)
-fit.f14 <- lm(mpg ~ wt + qsec, data = mtcars)
-fit.f15 <- lm(mpg ~ wt + vs, data = mtcars)
-fit.f16 <- lm(mpg ~ wt + am, data = mtcars)
-fit.f17 <- lm(mpg ~ wt + gear, data = mtcars)
-fit.f18 <- lm(mpg ~ wt + carb, data = mtcars)
-models.f1 <- list(fit.f10, fit.f11, fit.f12, fit.f13, fit.f14, fit.f15, fit.f16,
-                  fit.f17, fit.f18)
-print(ShowPValues(models.f1), n = 20)  # cyl has the lowest p-value
+#fit.f10 <- lm(mpg ~ wt + cyl, data = mtcars)
+#fit.f11 <- lm(mpg ~ wt + disp, data = mtcars)
+#fit.f12 <- lm(mpg ~ wt + hp, data = mtcars)
+#fit.f13 <- lm(mpg ~ wt + drat, data = mtcars)
+#fit.f14 <- lm(mpg ~ wt + qsec, data = mtcars)
+#fit.f15 <- lm(mpg ~ wt + vs, data = mtcars)
+#fit.f16 <- lm(mpg ~ wt + am, data = mtcars)
+#fit.f17 <- lm(mpg ~ wt + gear, data = mtcars)
+#fit.f18 <- lm(mpg ~ wt + carb, data = mtcars)
+#models.f1 <- list(fit.f10, fit.f11, fit.f12, fit.f13, fit.f14, fit.f15, fit.f16,
+#                  fit.f17, fit.f18)
+#print(ShowPValues(models.f1), n = 20)  # cyl has the lowest p-value
 
 
 
