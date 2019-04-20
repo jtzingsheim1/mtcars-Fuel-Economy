@@ -75,7 +75,10 @@ ShowPValues <- function(model.list) {
       select(Model.Num, Variable, pvalue)  # Reorder
     vars.table <- rbind(vars.table, model.summ)  # Trash
   }
-  return(arrange(vars.table, pvalue))
+  vars.reduced <- vars.table %>%
+    filter(Variable != "(Intercept)") %>%  # Filter out the Intercept values
+    arrange(pvalue)  # Sort by increasing p-value
+  return(vars.reduced)
 }
 
 
@@ -104,7 +107,7 @@ rm(car.names)
 # All of the original variables come through as numeric, but some are
 # categorical and others are discrete. The categorical variables should be
 # converted to factors, and the discrete variables should be assessed.
-#par(mfrow = c(3, 2))  # Setup plot space
+par(mfrow = c(3, 2))  # Setup plot space
 #boxplot(mtcars$mpg ~ mtcars$cyl)
 #plot(mtcars$mpg ~ mtcars$cyl)  # Only three levels, but seems linear
 #boxplot(mtcars$mpg ~ mtcars$gear)
@@ -186,7 +189,7 @@ par(mfrow = c(1, 2))  # Setup plot space
 #plot(mtcars$mpg ~ mtcars$disp)  # Negative slope, to be expected
 #plot(mtcars$mpg ~ mtcars$hp)  # Negative slope, to be expected
 #plot(mtcars$mpg ~ mtcars$drat)  # Positively sloped, opposite of expected
-#plot(mtcars$mpg ~ mtcars$wt)  # Negative slope, to be expected
+#plot(mtcars$mpg ~ mtcars$wt)  # Negative slope, very much expected
 #plot(mtcars$mpg ~ mtcars$qsec)  # Generally positive, faster cars consume more
 #plot(mtcars$mpg ~ mtcars$vs)  # Straight appears to have a significantly higher
 # mpg, but such a strong trend is not expected
@@ -194,6 +197,8 @@ par(mfrow = c(1, 2))  # Setup plot space
 # misleading based on the other factors
 # It was shown above that there doesnt appear to be a strong trend with mpg vs
 # number of gears, but one isn't really expected either
+# It was shown above that there is a negative slope between mpg and carb, but
+# such a strong relationship isn't really expected
 
 # Follow up on a few interesting notes from above
 # Why is mpg positively sloped with drat?
@@ -210,43 +215,54 @@ par(mfrow = c(1, 2))  # Setup plot space
 #rm(test, test2)
 # Controlling for weight explains much of the effect of vs, but there is still a
 # noticeable difference in mpg, perhaps further investigation is needed
+# Now check why mpg appears to have a strong correlation with carb
+#plot(mtcars$hp ~ mtcars$carb)  # Positively sloped
+#plot(mtcars$wt ~ mtcars$carb)  # Positively sloped
+#test <- lm(mpg ~ carb, data = mtcars)  # carb coefficient is -2.0557
+#test2 <- lm(mpg ~ carb + hp, data = mtcars)  # carb coefficient is 0.26470
+#test3 <- lm(mpg ~ carb + wt, data = mtcars)  # carb coefficient is -0.8215
+#test4 <- lm(mpg ~ carb + hp + wt, data = mtcars)  # carb coefficient is -0.09288
+#rm(test, test2, test3, test4)
+# Controlling for hp and weight explains nearly all of the effect of carb
 
-# It is useful to pause here and think of the ways in which the variables might
-# relate to each other to identify potential interaction effects:
+# Exploratory plots of interactions
+#plot(mtcars$disp ~ mtcars$am)  # Manual have much lower disp, but the manual
+# vehicles are lighter in this dataset, so it makes sense
+#plot(mtcars$hp ~ mtcars$disp)  # Positive slope, to be expected
+#plot(mtcars$hp ~ mtcars$wt)  # Positive slope, to be expected
+#plot(mtcars$hp ~ mtcars$am)  # Lower for manual but expected if considering wt
+#plot(mtcars$drat ~ mtcars$am)  # Higher for manual, but again the wt factor
+#plot(mtcars$qsec ~ mtcars$am)  # Minimal difference, to be expected
+
+# Also note:
 # - By definition, displacement = effective cylinder volume * number of cyls
-# so the cyl variable will have little use in this analysis since any
-# information it contains will already be contained in displacement
-# https://en.wikipedia.org/wiki/Engine_displacement
-# - While the relationship is not formulaic between displacement and horsepower,
-# the two are expected to correlate since a higher displacement engine should
-# produce more torque which should generally yield more horsepower. Checking
-# this data set shows that hp is positively correlated with disp.
-# https://www.reddit.com/r/AskEngineers/comments/33h2em/how_are_engine_displacement_and_powertorque/
-# - Horsepower can also be expected to correlate positively with vehicle weight
-# since a higher weight vehicle will generally need more horsepower to function.
-# Checking this data set shows that hp is positively correlated with wt.
-# - Rear axle ratio can be expected to correlate with fuel economy
-# https://shop.advanceautoparts.com/r/advice/car-technology/get-to-know-gear-ratios-and-how-they-affect-acceleration-and-mileage
-# https://www.edmunds.com/car-buying/how-to-choose-the-right-axle-ratio-for-your-pickup-truck.html
-# - Weight can be expected to correlate with fuel economy
 # - Quarter mile time is a result of many features of the car similar to mpg,
 # while it can be expected to correlate with mpg, it is likely to be very
 # correlated with all the other variables.
-# - Engine shape, number of gears, and number of carburators may all have small
-# correlations with fuel economy
 
-# Exploratory plots of interactions
-plot(mtcars$disp ~ mtcars$am) 
-plot(mtcars$hp ~ mtcars$disp)
-plot(mtcars$hp ~ mtcars$wt)
-plot(mtcars$hp ~ mtcars$am)
-plot(mtcars$drat ~ mtcars$am) 
-plot(mtcars$qsec ~ mtcars$am)
+# Interaction effects to consider for analysis:
+# - cyl and disp
+# - disp and hp
+# - disp and wt
+# - disp and qsec
+# - hp and wt
+# - hp and carb
+# - hp and qsec
+# - drat and wt
+# - drat and qsec
+# - wt and qsec
+# - wt and vs
+# - wt and am
+# - wt and gear
+# - wt and carb
+# - qsec and am
+# - qsec and gear
+# - qsec and carb
 
 
 # Part 3) Model Selection
 
-# Build a model using the backward elimination method
+# Build a model using the backward elimination method w/o interaction effects
 #fit.all <- lm(mpg ~ cyl + disp + hp + drat + wt + qsec + vs + am + gear + carb,
 #              data = mtcars)
 #print(GetMaxPVariable(fit.all))  # cyl
@@ -290,32 +306,190 @@ plot(mtcars$qsec ~ mtcars$am)
 #fit.old2a <- lm(mpg ~ hp + hp * wt + wt, data = mtcars)
 #print(summary(fit.old2a))  # All variables have significant p-values
 
+# Build a model using backward selection with all the interaction variables
+fit.b00 <- lm(mpg ~ cyl + cyl * disp + disp + disp * hp + disp * wt +
+                disp * qsec + hp + hp * wt + hp * carb + hp * qsec + drat +
+                drat * wt + drat * qsec + wt + wt * qsec + wt * vs + wt * am + 
+                wt * gear + wt * carb + qsec + qsec * am + qsec * gear +
+                qsec * carb + vs + am + gear + carb, data = mtcars)
+#print(GetMaxPVariable(fit.b00))  # hp:qsec
+fit.b01 <- lm(mpg ~ cyl + cyl * disp + disp + disp * hp + disp * wt +
+                disp * qsec + hp + hp * wt + hp * carb + drat + drat * wt +
+                drat * qsec + wt + wt * qsec + wt * vs + wt * am + wt * gear +
+                wt * carb + qsec + qsec * am + qsec * gear + qsec * carb + vs +
+                am + gear + carb, data = mtcars)
+#print(GetMaxPVariable(fit.b01))  # disp:hp
+fit.b02 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
+                hp * wt + hp * carb + drat + drat * wt + drat * qsec + wt +
+                wt * qsec + wt * vs + wt * am + wt * gear + wt * carb + qsec +
+                qsec * am + qsec * gear + qsec * carb + vs + am + gear + carb,
+              data = mtcars)
+#print(GetMaxPVariable(fit.b02))  # wt:carb
+fit.b03 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
+                hp * wt + hp * carb + drat + drat * wt + drat * qsec + wt +
+                wt * qsec + wt * vs + wt * am + wt * gear + qsec + qsec * am +
+                qsec * gear + qsec * carb + vs + am + gear + carb,
+              data = mtcars)
+#print(GetMaxPVariable(fit.b03))  # qsec:drat
+fit.b04 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
+                hp * wt + hp * carb + drat + drat * wt + wt + wt * qsec +
+                wt * vs + wt * am + wt * gear + qsec + qsec * am + qsec * gear +
+                qsec * carb + vs + am + gear + carb, data = mtcars)
+#print(GetMaxPVariable(fit.b04))  # wt:gear5
+fit.b05 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
+                hp * wt + hp * carb + drat + drat * wt + wt + wt * qsec +
+                wt * vs + wt * am + qsec + qsec * am + qsec * gear +
+                qsec * carb + vs + am + gear + carb, data = mtcars)
+#print(GetMaxPVariable(fit.b05))  # wt:amManual
+fit.b06 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
+                hp * wt + hp * carb + drat + drat * wt + wt + wt * qsec +
+                wt * vs + qsec + qsec * am + qsec * gear + qsec * carb + vs +
+                am + gear + carb, data = mtcars)
+#print(GetMaxPVariable(fit.b06))  # disp:qsec
+fit.b07 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + hp + hp * wt +
+                hp * carb + drat + drat * wt + wt + wt * qsec + wt * vs + qsec +
+                qsec * am + qsec * gear + qsec * carb + vs + am + gear + carb,
+              data = mtcars)
+#print(GetMaxPVariable(fit.b07))  # wt:drat
+fit.b08 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + hp + hp * wt +
+                hp * carb + drat + wt + wt * qsec + wt * vs + qsec + qsec * am +
+                qsec * gear + qsec * carb + vs + am + gear + carb,
+              data = mtcars)
+#print(GetMaxPVariable(fit.b08))  # drat
+fit.b09 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + hp + hp * wt +
+                hp * carb + wt + wt * qsec + wt * vs + qsec + qsec * am +
+                qsec * gear + qsec * carb + vs + am + gear + carb,
+              data = mtcars)
+#print(GetMaxPVariable(fit.b09))  # cyl:disp
+fit.b010 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
+                wt * qsec + wt * vs + qsec + qsec * am + qsec * gear +
+                qsec * carb + vs + am + gear + carb, data = mtcars)
+#print(GetMaxPVariable(fit.b010))  # gear5
+fit.b011 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
+                wt * qsec + wt * vs + qsec + qsec * am +  qsec * carb + vs +
+                am + carb, data = mtcars)
+#print(GetMaxPVariable(fit.b011))  # carb:qsec
+fit.b012 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
+                 wt * qsec + wt * vs + qsec + qsec * am + vs + am + carb,
+               data = mtcars)
+#print(GetMaxPVariable(fit.b012))  # wt:qsec
+fit.b013 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
+                 wt * vs + qsec + qsec * am + vs + am + carb, data = mtcars)
+#print(GetMaxPVariable(fit.b013))  # carb
+fit.b014 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + wt + wt * vs +
+                 qsec + qsec * am + vs + am, data = mtcars)
+#print(GetMaxPVariable(fit.b014))  # amManual
+fit.b015 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + wt + wt * vs +
+                 qsec + vs, data = mtcars)
+#print(GetMaxPVariable(fit.b015))  # disp:wt
+fit.b016 <- lm(mpg ~ cyl + disp + hp + hp * wt + wt + wt * vs + qsec + vs,
+               data = mtcars)
+#print(GetMaxPVariable(fit.b016))  # disp
+fit.b017 <- lm(mpg ~ cyl + hp + hp * wt + wt + wt * vs + qsec + vs,
+               data = mtcars)
+#print(GetMaxPVariable(fit.b017))  # cyl
+fit.b018 <- lm(mpg ~ hp + hp * wt + wt + wt * vs + qsec + vs, data = mtcars)
+#print(GetMaxPVariable(fit.b018))  # wt:vsStraight
+fit.b019 <- lm(mpg ~ hp + hp * wt + wt + qsec + vs, data = mtcars)
+#print(GetMaxPVariable(fit.b019))  # vsStraight
+fit.b020 <- lm(mpg ~ hp + hp * wt + wt + qsec, data = mtcars)
+#print(GetMaxPVariable(fit.b020))  # qsec
+fit.b021 <- lm(mpg ~ hp + hp * wt + wt, data = mtcars)
+#print(GetMaxPVariable(fit.b021))  # hp:wt, but it is significant
+fit.b022 <- lm(mpg ~ hp + wt, data = mtcars)
+#print(anova(fit.b022, fit.b021, fit.b020))
+# anova confirms to include the hp:wt term, but not the qsec term
+rm(fit.b00, fit.b01, fit.b02, fit.b03, fit.b04, fit.b05, fit.b06, fit.b07,
+   fit.b08, fit.b09, fit.b010, fit.b011, fit.b012, fit.b013, fit.b014, fit.b015,
+   fit.b016, fit.b017, fit.b018, fit.b019, fit.b020, fit.b022)
+
 # Build a model using forward selection without interaction variables
-#fit.f0 <- lm(mpg ~ cyl, data = mtcars)
-#fit.f1 <- lm(mpg ~ disp, data = mtcars)
-#fit.f2 <- lm(mpg ~ hp, data = mtcars)
-#fit.f3 <- lm(mpg ~ drat, data = mtcars)
-#fit.f4 <- lm(mpg ~ wt, data = mtcars)
-#fit.f5 <- lm(mpg ~ qsec, data = mtcars)
-#fit.f6 <- lm(mpg ~ vs, data = mtcars)
-#fit.f7 <- lm(mpg ~ am, data = mtcars)
-#fit.f8 <- lm(mpg ~ gear, data = mtcars)
-#fit.f9 <- lm(mpg ~ carb, data = mtcars)
-#models.f0 <- list(fit.f0, fit.f1, fit.f2, fit.f3, fit.f4, fit.f5, fit.f6,
-#                  fit.f7, fit.f8, fit.f9)
-#print(ShowPValues(models.f0))  # wt has the lowest p-value
-#fit.f10 <- lm(mpg ~ wt + cyl, data = mtcars)
-#fit.f11 <- lm(mpg ~ wt + disp, data = mtcars)
-#fit.f12 <- lm(mpg ~ wt + hp, data = mtcars)
-#fit.f13 <- lm(mpg ~ wt + drat, data = mtcars)
-#fit.f14 <- lm(mpg ~ wt + qsec, data = mtcars)
-#fit.f15 <- lm(mpg ~ wt + vs, data = mtcars)
-#fit.f16 <- lm(mpg ~ wt + am, data = mtcars)
-#fit.f17 <- lm(mpg ~ wt + gear, data = mtcars)
-#fit.f18 <- lm(mpg ~ wt + carb, data = mtcars)
-#models.f1 <- list(fit.f10, fit.f11, fit.f12, fit.f13, fit.f14, fit.f15, fit.f16,
-#                  fit.f17, fit.f18)
-#print(ShowPValues(models.f1), n = 20)  # cyl has the lowest p-value
+# Check individual models of all the main effects
+fit.f00 <- lm(mpg ~ cyl, data = mtcars)
+fit.f01 <- lm(mpg ~ disp, data = mtcars)
+fit.f02 <- lm(mpg ~ hp, data = mtcars)
+fit.f03 <- lm(mpg ~ drat, data = mtcars)
+fit.f04 <- lm(mpg ~ wt, data = mtcars)
+fit.f05 <- lm(mpg ~ qsec, data = mtcars)
+fit.f06 <- lm(mpg ~ vs, data = mtcars)
+fit.f07 <- lm(mpg ~ am, data = mtcars)
+fit.f08 <- lm(mpg ~ gear, data = mtcars)
+fit.f09 <- lm(mpg ~ carb, data = mtcars)
+models.f0 <- list(fit.f00, fit.f01, fit.f02, fit.f03, fit.f04, fit.f05, fit.f06,
+                  fit.f07, fit.f08, fit.f09)
+#print(ShowPValues(models.f0))  # wt from fit.f04 has the lowest p-value
+rm(fit.f00, fit.f01, fit.f02, fit.f03, fit.f05, fit.f06, fit.f07, fit.f08, 
+   fit.f09, models.f0)
+
+# Check models of wt with all other main effects and associated interactions
+fit.f10 <- lm(mpg ~ wt + cyl, data = mtcars)
+fit.f11 <- lm(mpg ~ wt + disp, data = mtcars)
+fit.f12 <- lm(mpg ~ wt + disp + wt * disp, data = mtcars)
+fit.f13 <- lm(mpg ~ wt + hp, data = mtcars)
+fit.f14 <- lm(mpg ~ wt + hp + wt * hp, data = mtcars)
+fit.f15 <- lm(mpg ~ wt + drat, data = mtcars)
+fit.f16 <- lm(mpg ~ wt + drat + wt * drat, data = mtcars)
+fit.f17 <- lm(mpg ~ wt + qsec, data = mtcars)
+fit.f18 <- lm(mpg ~ wt + qsec + wt * qsec, data = mtcars)
+fit.f19 <- lm(mpg ~ wt + vs, data = mtcars)
+fit.f110 <- lm(mpg ~ wt + vs + wt * vs, data = mtcars)
+fit.f111 <- lm(mpg ~ wt + am, data = mtcars)
+fit.f112 <- lm(mpg ~ wt + am + wt * am, data = mtcars)
+fit.f113 <- lm(mpg ~ wt + gear, data = mtcars)
+fit.f114 <- lm(mpg ~ wt + gear + wt * gear, data = mtcars)
+fit.f115 <- lm(mpg ~ wt + carb, data = mtcars)
+fit.f116 <- lm(mpg ~ wt + carb + wt * carb, data = mtcars)
+models.f1 <- list(fit.f10, fit.f11, fit.f12, fit.f13, fit.f14, fit.f15, fit.f16,
+                  fit.f17, fit.f18, fit.f19, fit.f110, fit.f111, fit.f112,
+                  fit.f113, fit.f114, fit.f115, fit.f116)
+#ShowPValues(models.f1) %>%
+#  filter(Variable != "wt") %>%
+#  print()  # hp from fit.f14 is next lowest
+# Check the anova to verify significance
+#print(anova(fit.f04, fit.f13, fit.f14))  # Keep hp and the interaction factor
+rm(fit.f10, fit.f11, fit.f12, fit.f13, fit.f15, fit.f16, fit.f17, fit.f18, fit.f19,
+   fit.f110, fit.f111, fit.f112, fit.f113, fit.f114, fit.f115, fit.f116,
+   models.f1)
+
+# Third round of forward selection
+fit.f20 <- lm(mpg ~ wt + hp + wt * hp + cyl, data = mtcars)
+fit.f21 <- lm(mpg ~ wt + hp + wt * hp + disp, data = mtcars)
+fit.f22 <- lm(mpg ~ wt + hp + wt * hp + disp + disp * hp, data = mtcars)
+fit.f23 <- lm(mpg ~ wt + hp + wt * hp + disp + disp * wt, data = mtcars)
+fit.f24 <- lm(mpg ~ wt + hp + wt * hp + disp + disp * hp + disp * wt,
+              data = mtcars)
+fit.f25 <- lm(mpg ~ wt + hp + wt * hp + drat, data = mtcars)
+fit.f26 <- lm(mpg ~ wt + hp + wt * hp + drat + drat * wt, data = mtcars)
+fit.f27 <- lm(mpg ~ wt + hp + wt * hp + qsec, data = mtcars)
+fit.f28 <- lm(mpg ~ wt + hp + wt * hp + qsec + qsec * hp, data = mtcars)
+fit.f29 <- lm(mpg ~ wt + hp + wt * hp + qsec + qsec * wt, data = mtcars)
+fit.f210 <- lm(mpg ~ wt + hp + wt * hp + qsec + qsec * hp + qsec * wt,
+               data = mtcars)
+fit.f211 <- lm(mpg ~ wt + hp + wt * hp + vs, data = mtcars)
+fit.f212 <- lm(mpg ~ wt + hp + wt * hp + vs + wt * vs, data = mtcars)
+fit.f213 <- lm(mpg ~ wt + hp + wt * hp + am, data = mtcars)
+fit.f214 <- lm(mpg ~ wt + hp + wt * hp + am + wt * am, data = mtcars)
+fit.f215 <- lm(mpg ~ wt + hp + wt * hp + gear, data = mtcars)
+fit.f216 <- lm(mpg ~ wt + hp + wt * hp + gear + wt * gear, data = mtcars)
+fit.f217 <- lm(mpg ~ wt + hp + wt * hp + carb, data = mtcars)
+fit.f218 <- lm(mpg ~ wt + hp + wt * hp + carb + wt * carb, data = mtcars)
+models.f2 <- list(fit.f20, fit.f21, fit.f22, fit.f23, fit.f24, fit.f25, fit.f26,
+                  fit.f27, fit.f28, fit.f29, fit.f210, fit.f211, fit.f212,
+                  fit.f213, fit.f214, fit.f215, fit.f216, fit.f217, fit.f218)
+#ShowPValues(models.f2) %>%
+#  filter(Variable != "wt") %>%
+#  filter(Variable != "hp") %>%
+#  filter(Variable != "wt:hp") %>%
+#  print()  # qsec from fit.f28 has the lowest p-value, but it is not signficant
+# Check anova to verify significance
+#print(anova(fit.f14, fit.f27, fit.f28))  # The p-values are not significant
+rm(fit.f04, fit.f20, fit.f21, fit.f22, fit.f23, fit.f24, fit.f25, fit.f26,
+   fit.f27, fit.f28, fit.f29, fit.f210, fit.f211, fit.f212, fit.f213, fit.f214,
+   fit.f215, fit.f216, fit.f217, fit.f218, models.f2)
+# This round explored many additions to the model, but none made significant
+# contributions to the model's performance
+# The forward selection method convereged on the same model as the backward
+# elimination method
 
 
 
