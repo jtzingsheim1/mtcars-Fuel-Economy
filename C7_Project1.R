@@ -1,4 +1,5 @@
 # Coursera Data Science Specialization Course 7 Project 1 Script
+# Analysis of tranmission type's impact on fuel economy in the mtcars dataset
 
 
 # The purpose of this script is to complete the basic requirements behind the
@@ -18,32 +19,31 @@
 
 
 library(datasets)
-library(dplyr)
-library(car)
+library(tidyverse)
+#library(car)
 
 
 # Part 0) Function definitions
 
 # Create a function to help get p-values from models
-SubsetModelSumm <- function(model) {
-  # Subsets a model summary down to its variables and p-values
+PValsOfModel <- function(model) {
+  # Returns the variables and p-values from a model
   #
   # Args:
   #   model: an object containing results returned by a model function (e.g. lm)
   #
   # Returns:
   #   A tibble object of the variables and p-values from summary(lm)
-  model.cf <- summary(model)$coefficients  # Get coefficients section
-  cf.names <- attr(model.cf, "dimnames")[[1]]  # Get variable names
-  model.cf <- as_tibble(model.cf)  # Convert to tibble object
-  model.summ <- model.cf %>%
-    mutate(Variable = cf.names) %>%  # Add column for variable names
+  model %>%
+    summary() %>%
+    pluck("coefficients") %>%  # Get the coefficients table from a model summary
+    as_tibble(rownames = "Variable") %>%
     rename(pvalue = "Pr(>|t|)") %>%
-    select(Variable, pvalue)  # Subset columns
-  return(model.summ)
+    select(Variable, pvalue)  # Subset to just the variable and pvalue columns
 }
 
-GetMaxPVariable <- function(model) {
+# Create a function to help with backward elimination modeling method
+LargestPVar <- function(model) {
   # Retrieves the variable with the largest p-value from a model
   #
   # Args:
@@ -51,45 +51,40 @@ GetMaxPVariable <- function(model) {
   #
   # Returns:
   #   The largest p-value from a model along with its variable name
-  model.summ <- SubsetModelSumm(model)
-  max.p.var <- model.summ %>%
-    filter(pvalue == max(pvalue))  # Subset rows
-  return(as.data.frame(max.p.var))
+  model %>%
+    PValsOfModel %>%
+    filter(pvalue == max(pvalue)) %>%
+    as.data.frame()
 }
 
 # Create a function to help with forward selection modeling method
-ShowPValues <- function(model.list) {
-  # Show all variables and p-values from a list of models
+SortVariables <- function(model.list) {
+  # Finds which model has the lowest pvalue for each variable and sorts the vars
   #
   # Args:
   #   model_list: an list containing model objects (e.g. output from lm)
   #
   # Returns:
-  #   The variable names and p-values from all the models
-  vars.table <- as_tibble()  # Need to size this or accomplish without loop
+  #   A tibble showing which model had the lowest pvalue for each variable
+  vars.list <- vector("list", length(model.list))  # Prepare a list to hold tbls
   for (i in seq_along(model.list)) {
-    model.i <- model.list[[i]]  # Get a model from the list
-    model.summ <- SubsetModelSumm(model.i)  # Subset down to vars and pvals
-    model.summ <- model.summ %>%
-      mutate(Model.Num = i) %>%  # Add col to ID the model
-      select(Model.Num, Variable, pvalue)  # Reorder
-    vars.table <- rbind(vars.table, model.summ)  # Trash
+    vars.list[[i]] <- model.list[[i]] %>%
+      PValsOfModel() %>%
+      mutate(Model.Num = i) %>%  # Add column to ID the model
+      select(Model.Num, everything())
   }
-  vars.reduced <- vars.table %>%
-    filter(Variable != "(Intercept)") %>%  # Filter out the Intercept values
-    arrange(pvalue)  # Sort by increasing p-value
-  return(vars.reduced)
+  vars.list %>%
+    bind_rows() %>%  # Assemble tibble from the list of tibbles
+    group_by(Variable) %>%
+    filter(pvalue == min(pvalue)) %>%  # Find model with best pvalue for ea var
+    arrange(pvalue)  # Sort by increasing pvalues
 }
 
 
 ## Part 1) Loading and preprocessing the data
 
-data("mtcars")  # Load the mt cars data set into workspace as an object mtcars
-car.names <- attributes(mtcars)$row.names  # Extract row names
-mtcars <- as_tibble(mtcars) %>%  # Convert from data frame to a tbl_df object
-  mutate(Vehicle = car.names) %>%  # Add column for the car names
-  select(Vehicle, mpg:carb)  # Reorder the columns
-rm(car.names)
+data("mtcars")
+mtcars <- as_tibble(mtcars, rownames = "Vehicle")
 #print(str(mtcars))  # Check out the variables and preview some values
 # The variables are mostly self-explanatory but checking the help file is useful
 # mpg	= Miles/(US) gallon
@@ -262,57 +257,13 @@ par(mfrow = c(1, 2))  # Setup plot space
 
 # Part 3) Model Selection
 
-# Build a model using the backward elimination method w/o interaction effects
-#fit.all <- lm(mpg ~ cyl + disp + hp + drat + wt + qsec + vs + am + gear + carb,
-#              data = mtcars)
-#print(GetMaxPVariable(fit.all))  # cyl
-#fit.b0 <- lm(mpg ~ disp + hp + drat + wt + qsec + vs + am + gear + carb,
-#              data = mtcars)
-#print(GetMaxPVariable(fit.b0))  # carb
-#fit.b1 <- lm(mpg ~ disp + hp + drat + wt + qsec + vs + am + gear, data = mtcars)
-#print(GetMaxPVariable(fit.b1))  # gear
-#fit.b2 <- lm(mpg ~ disp + hp + drat + wt + qsec + vs + am, data = mtcars)
-#print(GetMaxPVariable(fit.b2))  # vs
-#fit.b3 <- lm(mpg ~ disp + hp + drat + wt + qsec + am, data = mtcars)
-#print(GetMaxPVariable(fit.b3))  # drat
-#fit.b4 <- lm(mpg ~ disp + hp + wt + qsec + am, data = mtcars)
-#print(GetMaxPVariable(fit.b4))  # disp
-#fit.b5 <- lm(mpg ~ hp + wt + qsec + am, data = mtcars)
-#print(GetMaxPVariable(fit.b5))  # hp
-#fit.b6 <- lm(mpg ~ wt + qsec + am, data = mtcars)
-#print(GetMaxPVariable(fit.b6))  # Intercept
-#fit.b7 <- lm(mpg ~ wt + qsec + am - 1, data = mtcars)
-#print(GetMaxPVariable(fit.b7))  # am
-#fit.b8 <- lm(mpg ~ wt + qsec - 1, data = mtcars)
-#print(GetMaxPVariable(fit.b8))  # wt, but its significant
-#print(summary(fit.b8))
-#anova.b0 <- anova(fit.b8, fit.b7, fit.b6)  # Suggests to keep am and intercept
-#anova.b1 <- anova(fit.b6, fit.b5, fit.b4, fit.b3, fit.b2, fit.b1, fit.b0,
-#                  fit.all)  # Do not keep anything beyond the intercept
-# Based on the sequence above model fit.b6 would be the best to use
-
-# Original backward method on fit.all:
-# cyl, carb, gear, vs, drat, disp, hp, Intercept
-
-# Repeated, but starting model excluded qsec:
-#fit.old1 <- lm(mpg ~ cyl + disp + hp + drat + wt + vs + am + gear + carb,
-#              data = mtcars)
-# carb, gear, cyl, drat, disp, vs, am
-
-# Repeated again, but starting model excluded qsec, cyl, and included interact.
-#fit.old2 <- lm(mpg ~ disp + disp * hp + hp + hp * wt + drat + wt + vs + am + gear + carb,
-#              data = mtcars)
-# vs, disp and disp * hp, carb, am, drat, gear
-#fit.old2a <- lm(mpg ~ hp + hp * wt + wt, data = mtcars)
-#print(summary(fit.old2a))  # All variables have significant p-values
-
 # Build a model using backward selection with all the interaction variables
 fit.b00 <- lm(mpg ~ cyl + cyl * disp + disp + disp * hp + disp * wt +
                 disp * qsec + hp + hp * wt + hp * carb + hp * qsec + drat +
                 drat * wt + drat * qsec + wt + wt * qsec + wt * vs + wt * am + 
                 wt * gear + wt * carb + qsec + qsec * am + qsec * gear +
                 qsec * carb + vs + am + gear + carb, data = mtcars)
-#print(GetMaxPVariable(fit.b00))  # hp:qsec
+#print(LargestPVar(fit.b00))  # hp:qsec
 fit.b01 <- lm(mpg ~ cyl + cyl * disp + disp + disp * hp + disp * wt +
                 disp * qsec + hp + hp * wt + hp * carb + drat + drat * wt +
                 drat * qsec + wt + wt * qsec + wt * vs + wt * am + wt * gear +
@@ -403,7 +354,7 @@ rm(fit.b00, fit.b01, fit.b02, fit.b03, fit.b04, fit.b05, fit.b06, fit.b07,
    fit.b08, fit.b09, fit.b010, fit.b011, fit.b012, fit.b013, fit.b014, fit.b015,
    fit.b016, fit.b017, fit.b018, fit.b019, fit.b020, fit.b022)
 
-# Build a model using forward selection without interaction variables
+# Build a model using forward selection method
 # Check individual models of all the main effects
 fit.f00 <- lm(mpg ~ cyl, data = mtcars)
 fit.f01 <- lm(mpg ~ disp, data = mtcars)
@@ -417,7 +368,7 @@ fit.f08 <- lm(mpg ~ gear, data = mtcars)
 fit.f09 <- lm(mpg ~ carb, data = mtcars)
 models.f0 <- list(fit.f00, fit.f01, fit.f02, fit.f03, fit.f04, fit.f05, fit.f06,
                   fit.f07, fit.f08, fit.f09)
-#print(ShowPValues(models.f0))  # wt from fit.f04 has the lowest p-value
+#print(SortVariables(models.f0))  # wt from fit.f04 has the lowest p-value
 rm(fit.f00, fit.f01, fit.f02, fit.f03, fit.f05, fit.f06, fit.f07, fit.f08, 
    fit.f09, models.f0)
 
@@ -488,8 +439,8 @@ rm(fit.f04, fit.f20, fit.f21, fit.f22, fit.f23, fit.f24, fit.f25, fit.f26,
    fit.f215, fit.f216, fit.f217, fit.f218, models.f2)
 # This round explored many additions to the model, but none made significant
 # contributions to the model's performance
-# The forward selection method convereged on the same model as the backward
-# elimination method
+# The forward selection method converged on the same model as the backward
+# elimination method.
 
 
 
