@@ -1,4 +1,4 @@
-# Coursera Data Science Specialization Course 7 Project 1 Script
+# Coursera Data Science Specialization Course 7 Project 1 Script----------------
 # Analysis of tranmission type's impact on fuel economy in the mtcars dataset
 
 
@@ -23,7 +23,7 @@ library(tidyverse)
 #library(car)
 
 
-# Part 0) Function definitions
+# Part 0) Function definitions--------------------------------------------------
 
 # Create a function to help get p-values from models
 PValsOfModel <- function(model) {
@@ -108,19 +108,8 @@ MakeLmInput <- function(response, predictors.unique, predictors.repeat = NULL) {
   formula.list
 }
 
-#models <- lapply(variables, function(x) {
-#  predictors.unique %>%
-#    map(paste, repeated.portion, sep = " + ")
-#  
-#  (fmla <- as.formula(paste("y ~ ", paste(xnam, collapse= "+"))))  
-#  
-#  names(mtcars)[-c(1:2)] %>%
-#    map(lm, )
-#  lm(substitute(mpg ~ i, list(i = as.name(x))), data = mtcars)
-#  lm(substitute(mpg ~ i, list(i = as.name(x))), data = mtcars)
-#})
 
-## Part 1) Loading and preprocessing the data
+# Part 1) Loading and preprocessing the data-----------------------------------
 
 data("mtcars")
 mtcars <- as_tibble(mtcars, rownames = "Vehicle")
@@ -168,7 +157,7 @@ levels(mtcars$vs) <- c("V-shaped", "Straight")
 levels(mtcars$am) <- c("Automatic", "Manual")
 
 
-# Part 2) Exploratory Data Analysis
+# Part 2) Exploratory Data Analysis---------------------------------------------
 
 # Things to check:
 # 1. Check for missing values
@@ -294,188 +283,101 @@ par(mfrow = c(1, 2))  # Setup plot space
 # - qsec and carb
 
 
-# Part 3) Model Selection
+# Part 3) Model Selection-------------------------------------------------------
 
-# Build a model using backward selection with all the interaction variables
-#fit.b00 <- lm(mpg ~ cyl + cyl * disp + disp + disp * hp + disp * wt +
-#                disp * qsec + hp + hp * wt + hp * carb + hp * qsec + drat +
-#                drat * wt + drat * qsec + wt + wt * qsec + wt * vs + wt * am + 
-#                wt * gear + wt * carb + qsec + qsec * am + qsec * gear +
-#                qsec * carb + vs + am + gear + carb, data = mtcars)
-#print(LargestPVar(fit.b00))  # hp:qsec
-#fit.b01 <- lm(mpg ~ cyl + cyl * disp + disp + disp * hp + disp * wt +
-#                disp * qsec + hp + hp * wt + hp * carb + drat + drat * wt +
-#                drat * qsec + wt + wt * qsec + wt * vs + wt * am + wt * gear +
-#                wt * carb + qsec + qsec * am + qsec * gear + qsec * carb + vs +
-#                am + gear + carb, data = mtcars)
-#print(GetMaxPVariable(fit.b01))  # disp:hp
-#fit.b02 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
-#                hp * wt + hp * carb + drat + drat * wt + drat * qsec + wt +
-#                wt * qsec + wt * vs + wt * am + wt * gear + wt * carb + qsec +
-#                qsec * am + qsec * gear + qsec * carb + vs + am + gear + carb,
-#              data = mtcars)
-#print(GetMaxPVariable(fit.b02))  # wt:carb
-#fit.b03 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
-#                hp * wt + hp * carb + drat + drat * wt + drat * qsec + wt +
-#                wt * qsec + wt * vs + wt * am + wt * gear + qsec + qsec * am +
-#                qsec * gear + qsec * carb + vs + am + gear + carb,
-#              data = mtcars)
-#print(GetMaxPVariable(fit.b03))  # qsec:drat
-#fit.b04 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
-#                hp * wt + hp * carb + drat + drat * wt + wt + wt * qsec +
-#                wt * vs + wt * am + wt * gear + qsec + qsec * am + qsec * gear +
-#                qsec * carb + vs + am + gear + carb, data = mtcars)
-#print(GetMaxPVariable(fit.b04))  # wt:gear5
-#fit.b05 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
-#                hp * wt + hp * carb + drat + drat * wt + wt + wt * qsec +
-#                wt * vs + wt * am + qsec + qsec * am + qsec * gear +
-#                qsec * carb + vs + am + gear + carb, data = mtcars)
-#print(GetMaxPVariable(fit.b05))  # wt:amManual
-#fit.b06 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
-#                hp * wt + hp * carb + drat + drat * wt + wt + wt * qsec +
-#                wt * vs + qsec + qsec * am + qsec * gear + qsec * carb + vs +
-#                am + gear + carb, data = mtcars)
-#print(GetMaxPVariable(fit.b06))  # disp:qsec
-#fit.b07 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + hp + hp * wt +
-#                hp * carb + drat + drat * wt + wt + wt * qsec + wt * vs + qsec +
-#                qsec * am + qsec * gear + qsec * carb + vs + am + gear + carb,
-#              data = mtcars)
-#print(GetMaxPVariable(fit.b07))  # wt:drat
-#fit.b08 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + hp + hp * wt +
-#                hp * carb + drat + wt + wt * qsec + wt * vs + qsec + qsec * am +
-#                qsec * gear + qsec * carb + vs + am + gear + carb,
-#              data = mtcars)
-#print(GetMaxPVariable(fit.b08))  # drat
-#fit.b09 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + hp + hp * wt +
-#                hp * carb + wt + wt * qsec + wt * vs + qsec + qsec * am +
-#                qsec * gear + qsec * carb + vs + am + gear + carb,
-#              data = mtcars)
-#print(GetMaxPVariable(fit.b09))  # cyl:disp
-#fit.b010 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
-#                wt * qsec + wt * vs + qsec + qsec * am + qsec * gear +
-#                qsec * carb + vs + am + gear + carb, data = mtcars)
-#print(GetMaxPVariable(fit.b010))  # gear5
-#fit.b011 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
-#                wt * qsec + wt * vs + qsec + qsec * am +  qsec * carb + vs +
-#                am + carb, data = mtcars)
-#print(GetMaxPVariable(fit.b011))  # carb:qsec
-#fit.b012 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
-#                 wt * qsec + wt * vs + qsec + qsec * am + vs + am + carb,
-#               data = mtcars)
-#print(GetMaxPVariable(fit.b012))  # wt:qsec
-#fit.b013 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
-#                 wt * vs + qsec + qsec * am + vs + am + carb, data = mtcars)
-#print(GetMaxPVariable(fit.b013))  # carb
-#fit.b014 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + wt + wt * vs +
-#                 qsec + qsec * am + vs + am, data = mtcars)
-#print(GetMaxPVariable(fit.b014))  # amManual
-#fit.b015 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + wt + wt * vs +
-#                 qsec + vs, data = mtcars)
-#print(GetMaxPVariable(fit.b015))  # disp:wt
-#fit.b016 <- lm(mpg ~ cyl + disp + hp + hp * wt + wt + wt * vs + qsec + vs,
-#               data = mtcars)
-#print(GetMaxPVariable(fit.b016))  # disp
-#fit.b017 <- lm(mpg ~ cyl + hp + hp * wt + wt + wt * vs + qsec + vs,
-#               data = mtcars)
-#print(GetMaxPVariable(fit.b017))  # cyl
-#fit.b018 <- lm(mpg ~ hp + hp * wt + wt + wt * vs + qsec + vs, data = mtcars)
-#print(GetMaxPVariable(fit.b018))  # wt:vsStraight
-#fit.b019 <- lm(mpg ~ hp + hp * wt + wt + qsec + vs, data = mtcars)
-#print(GetMaxPVariable(fit.b019))  # vsStraight
-#fit.b020 <- lm(mpg ~ hp + hp * wt + wt + qsec, data = mtcars)
-#print(GetMaxPVariable(fit.b020))  # qsec
-#fit.b021 <- lm(mpg ~ hp + hp * wt + wt, data = mtcars)
-#print(GetMaxPVariable(fit.b021))  # hp:wt, but it is significant
-#fit.b022 <- lm(mpg ~ hp + wt, data = mtcars)
-#print(anova(fit.b022, fit.b021, fit.b020))
-# anova confirms to include the hp:wt term, but not the qsec term
-#rm(fit.b00, fit.b01, fit.b02, fit.b03, fit.b04, fit.b05, fit.b06, fit.b07,
-#   fit.b08, fit.b09, fit.b010, fit.b011, fit.b012, fit.b013, fit.b014, fit.b015,
-#   fit.b016, fit.b017, fit.b018, fit.b019, fit.b020, fit.b022)
-
-# Try another type of forward selection
-variables <- names(mtcars)[-c(1:2)]
-variables2 <- variables[-5]
-models <- MakeLmInput("mpg", variables) %>% map(lm, data = mtcars)
-models2 <- MakeLmInput("mpg", variables2, "wt") %>% map(lm, data = mtcars)
-print(summary(models[[4]]))
-print(summary(models2[[5]]))
+# Start building a model with the idea of forward selection in mind
+# First check which variable has the strongest relationship with mpg by itself
+all.variables <- names(mtcars)[-c(1:2)]  # Drop vehicle name and mpg variables
+all.variables %>%
+  MakeLmInput(response = "mpg") %>%  # Converts chr vector to lm input list
+  map(lm, data = mtcars) %>%  # Fits a model to each variable
+  SortVariables() %>%  # wt has the lowest p-value, start there
+  print()
+rm(all.variables)
 
 
+
+
+
+
+
+
+
+# Old---------------------------------------------------------------------------
 
 # Build a model using forward selection method
 # Check individual models of all the main effects
-fit.f00 <- lm(mpg ~ cyl, data = mtcars)
-fit.f01 <- lm(mpg ~ disp, data = mtcars)
-fit.f02 <- lm(mpg ~ hp, data = mtcars)
-fit.f03 <- lm(mpg ~ drat, data = mtcars)
-fit.f04 <- lm(mpg ~ wt, data = mtcars)
-fit.f05 <- lm(mpg ~ qsec, data = mtcars)
-fit.f06 <- lm(mpg ~ vs, data = mtcars)
-fit.f07 <- lm(mpg ~ am, data = mtcars)
-fit.f08 <- lm(mpg ~ gear, data = mtcars)
-fit.f09 <- lm(mpg ~ carb, data = mtcars)
-models.f0 <- list(fit.f00, fit.f01, fit.f02, fit.f03, fit.f04, fit.f05, fit.f06,
-                  fit.f07, fit.f08, fit.f09)
+#fit.f00 <- lm(mpg ~ cyl, data = mtcars)
+#fit.f01 <- lm(mpg ~ disp, data = mtcars)
+#fit.f02 <- lm(mpg ~ hp, data = mtcars)
+#fit.f03 <- lm(mpg ~ drat, data = mtcars)
+#fit.f04 <- lm(mpg ~ wt, data = mtcars)
+#fit.f05 <- lm(mpg ~ qsec, data = mtcars)
+#fit.f06 <- lm(mpg ~ vs, data = mtcars)
+#fit.f07 <- lm(mpg ~ am, data = mtcars)
+#fit.f08 <- lm(mpg ~ gear, data = mtcars)
+#fit.f09 <- lm(mpg ~ carb, data = mtcars)
+#models.f0 <- list(fit.f00, fit.f01, fit.f02, fit.f03, fit.f04, fit.f05, fit.f06,
+#                  fit.f07, fit.f08, fit.f09)
 #print(SortVariables(models.f0))  # wt from fit.f04 has the lowest p-value
-rm(fit.f00, fit.f01, fit.f02, fit.f03, fit.f05, fit.f06, fit.f07, fit.f08, 
-   fit.f09, models.f0)
+#rm(fit.f00, fit.f01, fit.f02, fit.f03, fit.f05, fit.f06, fit.f07, fit.f08, 
+#   fit.f09, models.f0)
 
 # Check models of wt with all other main effects and associated interactions
-fit.f10 <- lm(mpg ~ wt + cyl, data = mtcars)
-fit.f11 <- lm(mpg ~ wt + disp, data = mtcars)
-fit.f12 <- lm(mpg ~ wt + disp + wt * disp, data = mtcars)
-fit.f13 <- lm(mpg ~ wt + hp, data = mtcars)
-fit.f14 <- lm(mpg ~ wt + hp + wt * hp, data = mtcars)
-fit.f15 <- lm(mpg ~ wt + drat, data = mtcars)
-fit.f16 <- lm(mpg ~ wt + drat + wt * drat, data = mtcars)
-fit.f17 <- lm(mpg ~ wt + qsec, data = mtcars)
-fit.f18 <- lm(mpg ~ wt + qsec + wt * qsec, data = mtcars)
-fit.f19 <- lm(mpg ~ wt + vs, data = mtcars)
-fit.f110 <- lm(mpg ~ wt + vs + wt * vs, data = mtcars)
-fit.f111 <- lm(mpg ~ wt + am, data = mtcars)
-fit.f112 <- lm(mpg ~ wt + am + wt * am, data = mtcars)
-fit.f113 <- lm(mpg ~ wt + gear, data = mtcars)
-fit.f114 <- lm(mpg ~ wt + gear + wt * gear, data = mtcars)
-fit.f115 <- lm(mpg ~ wt + carb, data = mtcars)
-fit.f116 <- lm(mpg ~ wt + carb + wt * carb, data = mtcars)
-models.f1 <- list(fit.f10, fit.f11, fit.f12, fit.f13, fit.f14, fit.f15, fit.f16,
-                  fit.f17, fit.f18, fit.f19, fit.f110, fit.f111, fit.f112,
-                  fit.f113, fit.f114, fit.f115, fit.f116)
+#fit.f10 <- lm(mpg ~ wt + cyl, data = mtcars)
+#fit.f11 <- lm(mpg ~ wt + disp, data = mtcars)
+#fit.f12 <- lm(mpg ~ wt + disp + wt * disp, data = mtcars)
+#fit.f13 <- lm(mpg ~ wt + hp, data = mtcars)
+#fit.f14 <- lm(mpg ~ wt + hp + wt * hp, data = mtcars)
+#fit.f15 <- lm(mpg ~ wt + drat, data = mtcars)
+#fit.f16 <- lm(mpg ~ wt + drat + wt * drat, data = mtcars)
+#fit.f17 <- lm(mpg ~ wt + qsec, data = mtcars)
+#fit.f18 <- lm(mpg ~ wt + qsec + wt * qsec, data = mtcars)
+#fit.f19 <- lm(mpg ~ wt + vs, data = mtcars)
+#fit.f110 <- lm(mpg ~ wt + vs + wt * vs, data = mtcars)
+#fit.f111 <- lm(mpg ~ wt + am, data = mtcars)
+#fit.f112 <- lm(mpg ~ wt + am + wt * am, data = mtcars)
+#fit.f113 <- lm(mpg ~ wt + gear, data = mtcars)
+#fit.f114 <- lm(mpg ~ wt + gear + wt * gear, data = mtcars)
+#fit.f115 <- lm(mpg ~ wt + carb, data = mtcars)
+#fit.f116 <- lm(mpg ~ wt + carb + wt * carb, data = mtcars)
+#models.f1 <- list(fit.f10, fit.f11, fit.f12, fit.f13, fit.f14, fit.f15, fit.f16,
+#                  fit.f17, fit.f18, fit.f19, fit.f110, fit.f111, fit.f112,
+#                  fit.f113, fit.f114, fit.f115, fit.f116)
 #ShowPValues(models.f1) %>%
 #  filter(Variable != "wt") %>%
 #  print()  # hp from fit.f14 is next lowest
 # Check the anova to verify significance
 #print(anova(fit.f04, fit.f13, fit.f14))  # Keep hp and the interaction factor
-rm(fit.f10, fit.f11, fit.f12, fit.f13, fit.f15, fit.f16, fit.f17, fit.f18, fit.f19,
-   fit.f110, fit.f111, fit.f112, fit.f113, fit.f114, fit.f115, fit.f116,
-   models.f1)
+#rm(fit.f10, fit.f11, fit.f12, fit.f13, fit.f15, fit.f16, fit.f17, fit.f18, fit.f19,
+#   fit.f110, fit.f111, fit.f112, fit.f113, fit.f114, fit.f115, fit.f116,
+#   models.f1)
 
 # Third round of forward selection
-fit.f20 <- lm(mpg ~ wt + hp + wt * hp + cyl, data = mtcars)
-fit.f21 <- lm(mpg ~ wt + hp + wt * hp + disp, data = mtcars)
-fit.f22 <- lm(mpg ~ wt + hp + wt * hp + disp + disp * hp, data = mtcars)
-fit.f23 <- lm(mpg ~ wt + hp + wt * hp + disp + disp * wt, data = mtcars)
-fit.f24 <- lm(mpg ~ wt + hp + wt * hp + disp + disp * hp + disp * wt,
-              data = mtcars)
-fit.f25 <- lm(mpg ~ wt + hp + wt * hp + drat, data = mtcars)
-fit.f26 <- lm(mpg ~ wt + hp + wt * hp + drat + drat * wt, data = mtcars)
-fit.f27 <- lm(mpg ~ wt + hp + wt * hp + qsec, data = mtcars)
-fit.f28 <- lm(mpg ~ wt + hp + wt * hp + qsec + qsec * hp, data = mtcars)
-fit.f29 <- lm(mpg ~ wt + hp + wt * hp + qsec + qsec * wt, data = mtcars)
-fit.f210 <- lm(mpg ~ wt + hp + wt * hp + qsec + qsec * hp + qsec * wt,
-               data = mtcars)
-fit.f211 <- lm(mpg ~ wt + hp + wt * hp + vs, data = mtcars)
-fit.f212 <- lm(mpg ~ wt + hp + wt * hp + vs + wt * vs, data = mtcars)
-fit.f213 <- lm(mpg ~ wt + hp + wt * hp + am, data = mtcars)
-fit.f214 <- lm(mpg ~ wt + hp + wt * hp + am + wt * am, data = mtcars)
-fit.f215 <- lm(mpg ~ wt + hp + wt * hp + gear, data = mtcars)
-fit.f216 <- lm(mpg ~ wt + hp + wt * hp + gear + wt * gear, data = mtcars)
-fit.f217 <- lm(mpg ~ wt + hp + wt * hp + carb, data = mtcars)
-fit.f218 <- lm(mpg ~ wt + hp + wt * hp + carb + wt * carb, data = mtcars)
-models.f2 <- list(fit.f20, fit.f21, fit.f22, fit.f23, fit.f24, fit.f25, fit.f26,
-                  fit.f27, fit.f28, fit.f29, fit.f210, fit.f211, fit.f212,
-                  fit.f213, fit.f214, fit.f215, fit.f216, fit.f217, fit.f218)
+#fit.f20 <- lm(mpg ~ wt + hp + wt * hp + cyl, data = mtcars)
+#fit.f21 <- lm(mpg ~ wt + hp + wt * hp + disp, data = mtcars)
+#fit.f22 <- lm(mpg ~ wt + hp + wt * hp + disp + disp * hp, data = mtcars)
+#fit.f23 <- lm(mpg ~ wt + hp + wt * hp + disp + disp * wt, data = mtcars)
+#fit.f24 <- lm(mpg ~ wt + hp + wt * hp + disp + disp * hp + disp * wt,
+#              data = mtcars)
+#fit.f25 <- lm(mpg ~ wt + hp + wt * hp + drat, data = mtcars)
+#fit.f26 <- lm(mpg ~ wt + hp + wt * hp + drat + drat * wt, data = mtcars)
+#fit.f27 <- lm(mpg ~ wt + hp + wt * hp + qsec, data = mtcars)
+#fit.f28 <- lm(mpg ~ wt + hp + wt * hp + qsec + qsec * hp, data = mtcars)
+#fit.f29 <- lm(mpg ~ wt + hp + wt * hp + qsec + qsec * wt, data = mtcars)
+#fit.f210 <- lm(mpg ~ wt + hp + wt * hp + qsec + qsec * hp + qsec * wt,
+#               data = mtcars)
+#fit.f211 <- lm(mpg ~ wt + hp + wt * hp + vs, data = mtcars)
+#fit.f212 <- lm(mpg ~ wt + hp + wt * hp + vs + wt * vs, data = mtcars)
+#fit.f213 <- lm(mpg ~ wt + hp + wt * hp + am, data = mtcars)
+#fit.f214 <- lm(mpg ~ wt + hp + wt * hp + am + wt * am, data = mtcars)
+#fit.f215 <- lm(mpg ~ wt + hp + wt * hp + gear, data = mtcars)
+#fit.f216 <- lm(mpg ~ wt + hp + wt * hp + gear + wt * gear, data = mtcars)
+#fit.f217 <- lm(mpg ~ wt + hp + wt * hp + carb, data = mtcars)
+#fit.f218 <- lm(mpg ~ wt + hp + wt * hp + carb + wt * carb, data = mtcars)
+#models.f2 <- list(fit.f20, fit.f21, fit.f22, fit.f23, fit.f24, fit.f25, fit.f26,
+#                  fit.f27, fit.f28, fit.f29, fit.f210, fit.f211, fit.f212,
+#                  fit.f213, fit.f214, fit.f215, fit.f216, fit.f217, fit.f218)
 #ShowPValues(models.f2) %>%
 #  filter(Variable != "wt") %>%
 #  filter(Variable != "hp") %>%
@@ -483,23 +385,11 @@ models.f2 <- list(fit.f20, fit.f21, fit.f22, fit.f23, fit.f24, fit.f25, fit.f26,
 #  print()  # qsec from fit.f28 has the lowest p-value, but it is not signficant
 # Check anova to verify significance
 #print(anova(fit.f14, fit.f27, fit.f28))  # The p-values are not significant
-rm(fit.f04, fit.f20, fit.f21, fit.f22, fit.f23, fit.f24, fit.f25, fit.f26,
-   fit.f27, fit.f28, fit.f29, fit.f210, fit.f211, fit.f212, fit.f213, fit.f214,
-   fit.f215, fit.f216, fit.f217, fit.f218, models.f2)
+#rm(fit.f04, fit.f20, fit.f21, fit.f22, fit.f23, fit.f24, fit.f25, fit.f26,
+#   fit.f27, fit.f28, fit.f29, fit.f210, fit.f211, fit.f212, fit.f213, fit.f214,
+#   fit.f215, fit.f216, fit.f217, fit.f218, models.f2)
 # This round explored many additions to the model, but none made significant
 # contributions to the model's performance
 # The forward selection method converged on the same model as the backward
 # elimination method.
-
-
-
-
-
-
-
-
-
-
-
-
 
