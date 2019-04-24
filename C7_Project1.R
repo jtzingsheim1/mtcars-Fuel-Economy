@@ -80,6 +80,49 @@ SortVariables <- function(model.list) {
     arrange(pvalue)  # Sort by increasing pvalues
 }
 
+# Create a function that builds formulas which can be used as input for lm
+MakeLmFormula <- function(response, predictors.unique,
+                          predictors.repeat = NULL) {
+  # Builds formulas to be used as input for lm
+  #
+  # Args:
+  #   response: A chr vector of the variable to be predicted by the others
+  #   predictors.unique: A chr vector of variables to iterate (fit 1 model each)
+  #   predictors.repeat: A chr vector of variables to appear in all models
+
+  #
+  # Returns:
+  #
+  formula.list <- vector("list", length(predictors.unique))
+  if (is.null(predictors.repeat)) {
+    for (i in seq_along(predictors.unique)) {
+      formula.list[[i]] <- paste(response, "~") %>%
+        paste(predictors.unique[[i]]) %>%
+        as.formula()
+    }
+  } else {
+    repeated.predictors <- paste(predictors.repeat, collapse = " + ")
+    repeated.portion <- paste(response, repeated.predictors, sep = " ~ ")
+    for (i in seq_along(predictors.unique)) {
+      formula.list[[i]] <- paste(repeated.portion, predictors.unique[[i]],
+                                 sep = " + ") %>%
+        as.formula()
+    }
+  }
+  formula.list
+}
+
+#models <- lapply(variables, function(x) {
+#  predictors.unique %>%
+#    map(paste, repeated.portion, sep = " + ")
+#  
+#  (fmla <- as.formula(paste("y ~ ", paste(xnam, collapse= "+"))))  
+#  
+#  names(mtcars)[-c(1:2)] %>%
+#    map(lm, )
+#  lm(substitute(mpg ~ i, list(i = as.name(x))), data = mtcars)
+#  lm(substitute(mpg ~ i, list(i = as.name(x))), data = mtcars)
+#})
 
 ## Part 1) Loading and preprocessing the data
 
@@ -258,101 +301,109 @@ par(mfrow = c(1, 2))  # Setup plot space
 # Part 3) Model Selection
 
 # Build a model using backward selection with all the interaction variables
-fit.b00 <- lm(mpg ~ cyl + cyl * disp + disp + disp * hp + disp * wt +
-                disp * qsec + hp + hp * wt + hp * carb + hp * qsec + drat +
-                drat * wt + drat * qsec + wt + wt * qsec + wt * vs + wt * am + 
-                wt * gear + wt * carb + qsec + qsec * am + qsec * gear +
-                qsec * carb + vs + am + gear + carb, data = mtcars)
+#fit.b00 <- lm(mpg ~ cyl + cyl * disp + disp + disp * hp + disp * wt +
+#                disp * qsec + hp + hp * wt + hp * carb + hp * qsec + drat +
+#                drat * wt + drat * qsec + wt + wt * qsec + wt * vs + wt * am + 
+#                wt * gear + wt * carb + qsec + qsec * am + qsec * gear +
+#                qsec * carb + vs + am + gear + carb, data = mtcars)
 #print(LargestPVar(fit.b00))  # hp:qsec
-fit.b01 <- lm(mpg ~ cyl + cyl * disp + disp + disp * hp + disp * wt +
-                disp * qsec + hp + hp * wt + hp * carb + drat + drat * wt +
-                drat * qsec + wt + wt * qsec + wt * vs + wt * am + wt * gear +
-                wt * carb + qsec + qsec * am + qsec * gear + qsec * carb + vs +
-                am + gear + carb, data = mtcars)
+#fit.b01 <- lm(mpg ~ cyl + cyl * disp + disp + disp * hp + disp * wt +
+#                disp * qsec + hp + hp * wt + hp * carb + drat + drat * wt +
+#                drat * qsec + wt + wt * qsec + wt * vs + wt * am + wt * gear +
+#                wt * carb + qsec + qsec * am + qsec * gear + qsec * carb + vs +
+#                am + gear + carb, data = mtcars)
 #print(GetMaxPVariable(fit.b01))  # disp:hp
-fit.b02 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
-                hp * wt + hp * carb + drat + drat * wt + drat * qsec + wt +
-                wt * qsec + wt * vs + wt * am + wt * gear + wt * carb + qsec +
-                qsec * am + qsec * gear + qsec * carb + vs + am + gear + carb,
-              data = mtcars)
+#fit.b02 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
+#                hp * wt + hp * carb + drat + drat * wt + drat * qsec + wt +
+#                wt * qsec + wt * vs + wt * am + wt * gear + wt * carb + qsec +
+#                qsec * am + qsec * gear + qsec * carb + vs + am + gear + carb,
+#              data = mtcars)
 #print(GetMaxPVariable(fit.b02))  # wt:carb
-fit.b03 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
-                hp * wt + hp * carb + drat + drat * wt + drat * qsec + wt +
-                wt * qsec + wt * vs + wt * am + wt * gear + qsec + qsec * am +
-                qsec * gear + qsec * carb + vs + am + gear + carb,
-              data = mtcars)
+#fit.b03 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
+#                hp * wt + hp * carb + drat + drat * wt + drat * qsec + wt +
+#                wt * qsec + wt * vs + wt * am + wt * gear + qsec + qsec * am +
+#                qsec * gear + qsec * carb + vs + am + gear + carb,
+#              data = mtcars)
 #print(GetMaxPVariable(fit.b03))  # qsec:drat
-fit.b04 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
-                hp * wt + hp * carb + drat + drat * wt + wt + wt * qsec +
-                wt * vs + wt * am + wt * gear + qsec + qsec * am + qsec * gear +
-                qsec * carb + vs + am + gear + carb, data = mtcars)
+#fit.b04 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
+#                hp * wt + hp * carb + drat + drat * wt + wt + wt * qsec +
+#                wt * vs + wt * am + wt * gear + qsec + qsec * am + qsec * gear +
+#                qsec * carb + vs + am + gear + carb, data = mtcars)
 #print(GetMaxPVariable(fit.b04))  # wt:gear5
-fit.b05 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
-                hp * wt + hp * carb + drat + drat * wt + wt + wt * qsec +
-                wt * vs + wt * am + qsec + qsec * am + qsec * gear +
-                qsec * carb + vs + am + gear + carb, data = mtcars)
+#fit.b05 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
+#                hp * wt + hp * carb + drat + drat * wt + wt + wt * qsec +
+#                wt * vs + wt * am + qsec + qsec * am + qsec * gear +
+#                qsec * carb + vs + am + gear + carb, data = mtcars)
 #print(GetMaxPVariable(fit.b05))  # wt:amManual
-fit.b06 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
-                hp * wt + hp * carb + drat + drat * wt + wt + wt * qsec +
-                wt * vs + qsec + qsec * am + qsec * gear + qsec * carb + vs +
-                am + gear + carb, data = mtcars)
+#fit.b06 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + disp * qsec + hp +
+#                hp * wt + hp * carb + drat + drat * wt + wt + wt * qsec +
+#                wt * vs + qsec + qsec * am + qsec * gear + qsec * carb + vs +
+#                am + gear + carb, data = mtcars)
 #print(GetMaxPVariable(fit.b06))  # disp:qsec
-fit.b07 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + hp + hp * wt +
-                hp * carb + drat + drat * wt + wt + wt * qsec + wt * vs + qsec +
-                qsec * am + qsec * gear + qsec * carb + vs + am + gear + carb,
-              data = mtcars)
+#fit.b07 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + hp + hp * wt +
+#                hp * carb + drat + drat * wt + wt + wt * qsec + wt * vs + qsec +
+#                qsec * am + qsec * gear + qsec * carb + vs + am + gear + carb,
+#              data = mtcars)
 #print(GetMaxPVariable(fit.b07))  # wt:drat
-fit.b08 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + hp + hp * wt +
-                hp * carb + drat + wt + wt * qsec + wt * vs + qsec + qsec * am +
-                qsec * gear + qsec * carb + vs + am + gear + carb,
-              data = mtcars)
+#fit.b08 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + hp + hp * wt +
+#                hp * carb + drat + wt + wt * qsec + wt * vs + qsec + qsec * am +
+#                qsec * gear + qsec * carb + vs + am + gear + carb,
+#              data = mtcars)
 #print(GetMaxPVariable(fit.b08))  # drat
-fit.b09 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + hp + hp * wt +
-                hp * carb + wt + wt * qsec + wt * vs + qsec + qsec * am +
-                qsec * gear + qsec * carb + vs + am + gear + carb,
-              data = mtcars)
+#fit.b09 <- lm(mpg ~ cyl + cyl * disp + disp + disp * wt + hp + hp * wt +
+#                hp * carb + wt + wt * qsec + wt * vs + qsec + qsec * am +
+#                qsec * gear + qsec * carb + vs + am + gear + carb,
+#              data = mtcars)
 #print(GetMaxPVariable(fit.b09))  # cyl:disp
-fit.b010 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
-                wt * qsec + wt * vs + qsec + qsec * am + qsec * gear +
-                qsec * carb + vs + am + gear + carb, data = mtcars)
+#fit.b010 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
+#                wt * qsec + wt * vs + qsec + qsec * am + qsec * gear +
+#                qsec * carb + vs + am + gear + carb, data = mtcars)
 #print(GetMaxPVariable(fit.b010))  # gear5
-fit.b011 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
-                wt * qsec + wt * vs + qsec + qsec * am +  qsec * carb + vs +
-                am + carb, data = mtcars)
+#fit.b011 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
+#                wt * qsec + wt * vs + qsec + qsec * am +  qsec * carb + vs +
+#                am + carb, data = mtcars)
 #print(GetMaxPVariable(fit.b011))  # carb:qsec
-fit.b012 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
-                 wt * qsec + wt * vs + qsec + qsec * am + vs + am + carb,
-               data = mtcars)
+#fit.b012 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
+#                 wt * qsec + wt * vs + qsec + qsec * am + vs + am + carb,
+#               data = mtcars)
 #print(GetMaxPVariable(fit.b012))  # wt:qsec
-fit.b013 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
-                 wt * vs + qsec + qsec * am + vs + am + carb, data = mtcars)
+#fit.b013 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + hp * carb + wt +
+#                 wt * vs + qsec + qsec * am + vs + am + carb, data = mtcars)
 #print(GetMaxPVariable(fit.b013))  # carb
-fit.b014 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + wt + wt * vs +
-                 qsec + qsec * am + vs + am, data = mtcars)
+#fit.b014 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + wt + wt * vs +
+#                 qsec + qsec * am + vs + am, data = mtcars)
 #print(GetMaxPVariable(fit.b014))  # amManual
-fit.b015 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + wt + wt * vs +
-                 qsec + vs, data = mtcars)
+#fit.b015 <- lm(mpg ~ cyl + disp + disp * wt + hp + hp * wt + wt + wt * vs +
+#                 qsec + vs, data = mtcars)
 #print(GetMaxPVariable(fit.b015))  # disp:wt
-fit.b016 <- lm(mpg ~ cyl + disp + hp + hp * wt + wt + wt * vs + qsec + vs,
-               data = mtcars)
+#fit.b016 <- lm(mpg ~ cyl + disp + hp + hp * wt + wt + wt * vs + qsec + vs,
+#               data = mtcars)
 #print(GetMaxPVariable(fit.b016))  # disp
-fit.b017 <- lm(mpg ~ cyl + hp + hp * wt + wt + wt * vs + qsec + vs,
-               data = mtcars)
+#fit.b017 <- lm(mpg ~ cyl + hp + hp * wt + wt + wt * vs + qsec + vs,
+#               data = mtcars)
 #print(GetMaxPVariable(fit.b017))  # cyl
-fit.b018 <- lm(mpg ~ hp + hp * wt + wt + wt * vs + qsec + vs, data = mtcars)
+#fit.b018 <- lm(mpg ~ hp + hp * wt + wt + wt * vs + qsec + vs, data = mtcars)
 #print(GetMaxPVariable(fit.b018))  # wt:vsStraight
-fit.b019 <- lm(mpg ~ hp + hp * wt + wt + qsec + vs, data = mtcars)
+#fit.b019 <- lm(mpg ~ hp + hp * wt + wt + qsec + vs, data = mtcars)
 #print(GetMaxPVariable(fit.b019))  # vsStraight
-fit.b020 <- lm(mpg ~ hp + hp * wt + wt + qsec, data = mtcars)
+#fit.b020 <- lm(mpg ~ hp + hp * wt + wt + qsec, data = mtcars)
 #print(GetMaxPVariable(fit.b020))  # qsec
-fit.b021 <- lm(mpg ~ hp + hp * wt + wt, data = mtcars)
+#fit.b021 <- lm(mpg ~ hp + hp * wt + wt, data = mtcars)
 #print(GetMaxPVariable(fit.b021))  # hp:wt, but it is significant
-fit.b022 <- lm(mpg ~ hp + wt, data = mtcars)
+#fit.b022 <- lm(mpg ~ hp + wt, data = mtcars)
 #print(anova(fit.b022, fit.b021, fit.b020))
 # anova confirms to include the hp:wt term, but not the qsec term
-rm(fit.b00, fit.b01, fit.b02, fit.b03, fit.b04, fit.b05, fit.b06, fit.b07,
-   fit.b08, fit.b09, fit.b010, fit.b011, fit.b012, fit.b013, fit.b014, fit.b015,
-   fit.b016, fit.b017, fit.b018, fit.b019, fit.b020, fit.b022)
+#rm(fit.b00, fit.b01, fit.b02, fit.b03, fit.b04, fit.b05, fit.b06, fit.b07,
+#   fit.b08, fit.b09, fit.b010, fit.b011, fit.b012, fit.b013, fit.b014, fit.b015,
+#   fit.b016, fit.b017, fit.b018, fit.b019, fit.b020, fit.b022)
+
+# Try another type of forward selection
+variables <- names(mtcars)[-c(1:2)]
+variables2 <- variables[-5]
+
+
+
+
 
 # Build a model using forward selection method
 # Check individual models of all the main effects
@@ -441,8 +492,6 @@ rm(fit.f04, fit.f20, fit.f21, fit.f22, fit.f23, fit.f24, fit.f25, fit.f26,
 # contributions to the model's performance
 # The forward selection method converged on the same model as the backward
 # elimination method.
-
-
 
 
 
