@@ -81,33 +81,29 @@ SortVariables <- function(model.list) {
 }
 
 # Create a function that builds formulas which can be used as input for lm
-MakeLmFormula <- function(response, predictors.unique,
-                          predictors.repeat = NULL) {
+MakeLmInput <- function(response, predictors.unique, predictors.repeat = NULL) {
   # Builds formulas to be used as input for lm
   #
   # Args:
   #   response: A chr vector of the variable to be predicted by the others
   #   predictors.unique: A chr vector of variables to iterate (fit 1 model each)
   #   predictors.repeat: A chr vector of variables to appear in all models
-
   #
   # Returns:
   #
-  formula.list <- vector("list", length(predictors.unique))
   if (is.null(predictors.repeat)) {
-    for (i in seq_along(predictors.unique)) {
-      formula.list[[i]] <- paste(response, "~") %>%
-        paste(predictors.unique[[i]]) %>%
-        as.formula()
-    }
+    repeated.portion <- paste(response, "~")
+    separator <- " "
   } else {
-    repeated.predictors <- paste(predictors.repeat, collapse = " + ")
-    repeated.portion <- paste(response, repeated.predictors, sep = " ~ ")
-    for (i in seq_along(predictors.unique)) {
-      formula.list[[i]] <- paste(repeated.portion, predictors.unique[[i]],
-                                 sep = " + ") %>%
-        as.formula()
-    }
+    repeated.portion <- paste(predictors.repeat, collapse = " + ") %>%
+      paste(response, ., sep = " ~ ")
+    separator <- " + "
+  }
+  formula.list <- vector("list", length(predictors.unique))
+  for (i in seq_along(predictors.unique)) {
+    formula.list[[i]] <- paste(repeated.portion, predictors.unique[[i]],
+                               sep = separator) %>%
+      as.formula()
   }
   formula.list
 }
@@ -400,8 +396,10 @@ par(mfrow = c(1, 2))  # Setup plot space
 # Try another type of forward selection
 variables <- names(mtcars)[-c(1:2)]
 variables2 <- variables[-5]
-
-
+models <- MakeLmInput("mpg", variables) %>% map(lm, data = mtcars)
+models2 <- MakeLmInput("mpg", variables2, "wt") %>% map(lm, data = mtcars)
+print(summary(models[[4]]))
+print(summary(models2[[5]]))
 
 
 
