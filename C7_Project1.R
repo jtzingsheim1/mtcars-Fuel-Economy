@@ -25,23 +25,41 @@ library(tidyverse)
 
 # Part 0) Function definitions--------------------------------------------------
 
-# Create a function to help with forward selection modeling method
-
-GetModelStats <- function(model) {
-  # Returns a tibble of stats for a given model object
+# Create a function to fit and evaluate several models from input variables
+FitAndEvalModels <- function(data, response, predictors.unique,
+                             predictors.repeat = NULL) {
+  # Assembles formulas to be used as input for lm, fits models, displays summary
+  # statistics side-by-side, and sorts the result by increasing pvalue
   #
   # Args:
-  #   model: an object containing results returned by a model function (e.g. lm)
+  #   data: the data set containing the variables, passed to lm
+  #   response: A chr vector of the variable to be predicted by the others
+  #   predictors.unique: A chr vector of variables to iterate (fit 1 model each)
+  #   predictors.repeat: A chr vector of variables to repeat in all models
   #
   # Returns:
-  #   A tibble object of summary statistics for the model
-  tibble(R.Squared = summary(model)$r.squared,
-         Ad.R.Squared = summary(model)$adj.r.squared,
-         model.pvalue = anova(model)$`Pr(>F)`[[1]])
+  #   A tibble containing the model formulas, model objects, and summary stats
+  #
+  # First build a vector of formulas from the character vectors of variables
+  formula.vector <- MakeLmInput(response = response,
+                                predictors.unique = predictors.unique,
+                                predictors.repeat = predictors.repeat)
+  # Next make a tibble which stores the model results alongside the formulas
+  table.1 <- tibble(model.name = formula.vector) %>%
+    mutate(model.object = map(model.name, lm, data = data))
+  # Next make a tibble which collects summary statistics for each model
+  table.2 <- table.1$model.object %>%  # List of the models
+    map(GetModelStats) %>%  # Apply function to each element, output as list
+    bind_rows()  # Condense the list down to a tibble
+  # Lastly bind the two tibbles together and sort by ascending pvalue
+  result <- bind_cols(table.1, table.2) %>%
+    arrange(model.pvalue)
+  result  # Return the tibble
 }
 
+# Create a function to assemble lm formulas from input varibles
 MakeLmInput <- function(response, predictors.unique, predictors.repeat = NULL) {
-  # Builds formulas to be used as input for lm
+  # Assembles character vectors into formulas to be used as input for lm
   #
   # Args:
   #   response: A chr vector of the variable to be predicted by the others
@@ -49,7 +67,11 @@ MakeLmInput <- function(response, predictors.unique, predictors.repeat = NULL) {
   #   predictors.repeat: A chr vector of variables to appear in all models
   #
   # Returns:
+  #   A character vector of "formulas" which can be coereced into actual
+  #   formulas by lm.
   #
+  # The pasting is slightly different depending if any variables will be
+  # repeated in all the models, the if statement below handles this
   if (is.null(predictors.repeat)) {
     repeated.portion <- paste(response, "~")
     separator <- " "
@@ -58,38 +80,24 @@ MakeLmInput <- function(response, predictors.unique, predictors.repeat = NULL) {
       paste(response, ., sep = " ~ ")
     separator <- " + "
   }
-  formula.vector <- vector(mode = "character", length(predictors.unique))
-  for (i in seq_along(predictors.unique)) {
-    formula.vector[[i]] <- paste(repeated.portion, predictors.unique[[i]],
-                               sep = separator)
-  }
-  formula.vector
+  # The variables are pasted below, the repeated portion is recycled for each of
+  # the unique predictors. The output vector has length(predictors.unique)
+  paste(repeated.portion, predictors.unique, sep = separator)
 }
 
-MasterFunc <- function(data, response, predictors.unique,
-                       predictors.repeat = NULL) {
-  # Builds formulas to be used as input for lm
+# Create a function to collect summary statistics for an individual model object
+GetModelStats <- function(model) {
+  # Returns a tibble of stats for given model object
   #
   # Args:
-  #   response: A chr vector of the variable to be predicted by the others
-  #   predictors.unique: A chr vector of variables to iterate (fit 1 model each)
-  #   predictors.repeat: A chr vector of variables to appear in all models
+  #   model: an object containing results returned by a model function (e.g. lm)
   #
   # Returns:
-  #
-  formula.vector <- MakeLmInput(response = response,
-                                 predictors.unique = predictors.unique,
-                                 predictors.repeat = predictors.repeat)
-  table.1 <- tibble(model.name = formula.vector) %>%
-    mutate(model.object = map(model.name, lm, data = data))
-  table.2 <- table.1$model.object %>%
-    map(GetModelStats) %>%
-    bind_rows
-  result <- bind_cols(table.1, table.2) %>%
-    arrange(model.pvalue)
-  result
+  #   A tibble object of the R-Squared, Adj. R-Squared, and p-value of the model
+  tibble(R.Squared = summary(model)$r.squared,
+         Ad.R.Squared = summary(model)$adj.r.squared,
+         model.pvalue = anova(model)$`Pr(>F)`[[1]])  # Easier to get from anova
 }
-
 
 # Part 1) Loading and preprocessing the data-----------------------------------
 
@@ -112,7 +120,7 @@ mtcars <- as_tibble(mtcars, rownames = "Vehicle")
 # All of the original variables come through as numeric, but some are
 # categorical and others are discrete. The categorical variables should be
 # converted to factors, and the discrete variables should be assessed.
-par(mfrow = c(3, 2))  # Setup plot space
+#par(mfrow = c(3, 2))  # Setup plot space
 #boxplot(mtcars$mpg ~ mtcars$cyl)
 #plot(mtcars$mpg ~ mtcars$cyl)  # Only three levels, but seems linear
 #boxplot(mtcars$mpg ~ mtcars$gear)
@@ -157,7 +165,7 @@ levels(mtcars$am) <- c("Automatic", "Manual")
 # d. Are there any patterns? Why.
 
 # From the summary above, one can see disp, hp, and carb have means > median
-par(mfrow = c(1, 2))  # Setup plot space
+#par(mfrow = c(1, 2))  # Setup plot space
 #hist(mtcars$mpg)  # Nothing unusual, fewer cars in 25 bin could be noise
 #plot(as.factor(mtcars$cyl))  # Only three possible values: 4, 6, and 8
 #hist(mtcars$disp)  # Right skew/flat with 4 obs per bin of 50 wide
@@ -269,12 +277,19 @@ par(mfrow = c(1, 2))  # Setup plot space
 
 # Start building a model with the idea of forward selection in mind
 # First check which variable has the strongest relationship with mpg by itself
-all.vars <- names(mtcars)[-c(1:2)]  # Drop vehicle name and mpg variables
-round1 <- MasterFunc(data = mtcars, response = "mpg",
+# Collect all the predictor variables into a character vector
+all.vars <- mtcars %>%
+  select(-Vehicle, -mpg) %>%  # Drop the non-predictors
+  names()
+round1 <- FitAndEvalModels(data = mtcars, response = "mpg",
                      predictors.unique = all.vars)
 print(round1)
+#vars.2 <- all.vars[-5]
+#round2 <- FitAndEvalModels(data = mtcars, response = "mpg",
+#                           predictors.unique = vars.2, predictors.repeat = "wt")
+#print(round2)
 #rm(all.vars)
-fit1 <- lm(mpg ~ wt, data = mtcars)  # Adj. Rsqr = 0.7446, p-value = 1.3e-10
+#fit1 <- lm(mpg ~ wt, data = mtcars)  # Adj. Rsqr = 0.7446, p-value = 1.3e-10
 # Check out the residuals
 #print(hist(residuals(fit1)))  # Right skew, ranges from -4.54 to 6.87
 #print(plot(residuals(fit1) ~ mtcars$wt))  # U shape, high at ends low in center
@@ -287,8 +302,6 @@ fit1 <- lm(mpg ~ wt, data = mtcars)  # Adj. Rsqr = 0.7446, p-value = 1.3e-10
 #fit2 <- lm(log2(mpg) ~ wt, data = mtcars)
 #fit3 <- lm(mpg ~ log2(wt), data = mtcars)
 #fit4 <- lm(log2(mpg) ~ log2(wt), data = mtcars)
-
-
 
 
 # Old---------------------------------------------------------------------------
