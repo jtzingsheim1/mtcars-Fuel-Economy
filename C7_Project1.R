@@ -25,15 +25,15 @@ library(tidyverse)
 
 # Part 0) Function definitions--------------------------------------------------
 
-# Create a function to help get p-values from models
-PValsOfModel <- function(model) {
-  # Returns the variables and p-values from a model
+# Create a function to help get variables p-values from models
+PValsOfVars <- function(model) {
+  # Returns the variables and their coefficient p-values from a model fit
   #
   # Args:
   #   model: an object containing results returned by a model function (e.g. lm)
   #
   # Returns:
-  #   A tibble object of the variables and p-values from summary(lm)
+  #   A tibble object of the variables and their coef. p-values from summary(lm)
   model %>%
     summary() %>%
     pluck("coefficients") %>%  # Get the coefficients table from a model summary
@@ -52,24 +52,24 @@ LargestPVar <- function(model) {
   # Returns:
   #   The largest p-value from a model along with its variable name
   model %>%
-    PValsOfModel %>%
+    PValsOfVars() %>%
     filter(pvalue == max(pvalue)) %>%
     as.data.frame()
 }
 
 # Create a function to help with forward selection modeling method
 SortVariables <- function(model.list) {
-  # Finds which model has the lowest pvalue for each variable and sorts the vars
+  # Finds which of several models gives the lowest pvalue for each variable coef
   #
   # Args:
-  #   model_list: an list containing model objects (e.g. output from lm)
+  #   model_list: a list containing model objects (e.g. output from lm)
   #
   # Returns:
-  #   A tibble showing which model had the lowest pvalue for each variable
+  #   A tibble showing which model had the lowest coef. pvalue for each variable
   vars.list <- vector("list", length(model.list))  # Prepare a list to hold tbls
   for (i in seq_along(model.list)) {
     vars.list[[i]] <- model.list[[i]] %>%
-      PValsOfModel() %>%
+      PValsOfVars() %>%
       mutate(Model.Num = i) %>%  # Add column to ID the model
       select(Model.Num, everything())
   }
@@ -78,6 +78,56 @@ SortVariables <- function(model.list) {
     group_by(Variable) %>%
     filter(pvalue == min(pvalue)) %>%  # Find model with best pvalue for ea var
     arrange(pvalue)  # Sort by increasing pvalues
+}
+
+GetModelStats <- function(model) {
+  # Returns a tibble of stats for a given model object
+  #
+  # Args:
+  #   model: an object containing results returned by a model function (e.g. lm)
+  #
+  # Returns:
+  #   A tibble object of summary statistics for the model
+  tibble(R.Squared = summary(model)$r.squared,
+         Ad.R.Squared = summary(model)$adj.r.squared,
+         model.pvalue = anova(model)$`Pr(>F)`[[1]])
+}
+
+SortModels <- function(model.list) {
+  # Sorts models from a list by increasing overall pvalue, displays other stats
+  #
+  # Args:
+  #   model_list: a list containing model objects (e.g. output from lm)
+  #
+  # Returns:
+  #   A sorted tibble showing each model and its overall p-value and Rsqr
+  result <- vector("list", length(model.list))  # Prepare a list to hold tbls
+  for (i in seq_along(model.list)) {
+    result[[i]] <- model.list[[i]] %>%
+      GetModelStats() %>%
+      mutate(Model.Num = i) %>%  # Add column to ID the model
+      select(Model.Num, everything())
+  }
+  result %>%
+    bind_rows() %>%  # Assemble tibble from the list of tibbles
+    arrange(model.pvalue)  # Sort by increasing pvalues
+}
+
+SortModels2 <- function(model.list) {
+  # Sorts models from a list by increasing overall pvalue, displays other stats
+  #
+  # Args:
+  #   model_list: a list containing model objects (e.g. output from lm)
+  #
+  # Returns:
+  #   A sorted tibble showing each model and its overall p-value and Rsqr
+  result <- vector("list", length(model.list))  # Prepare a list to hold tbls
+  for (i in seq_along(model.list)) {
+    result[[i]] <- model.list[[i]] %>%
+      GetModelStats()
+  }
+  result %>%
+    bind_rows()  # Assemble tibble from the list of tibbles
 }
 
 # Create a function that builds formulas which can be used as input for lm
@@ -108,6 +158,79 @@ MakeLmInput <- function(response, predictors.unique, predictors.repeat = NULL) {
   formula.list
 }
 
+MakeLmInput2 <- function(response, predictors.unique, predictors.repeat = NULL) {
+  # Builds formulas to be used as input for lm
+  #
+  # Args:
+  #   response: A chr vector of the variable to be predicted by the others
+  #   predictors.unique: A chr vector of variables to iterate (fit 1 model each)
+  #   predictors.repeat: A chr vector of variables to appear in all models
+  #
+  # Returns:
+  #
+  if (is.null(predictors.repeat)) {
+    repeated.portion <- paste(response, "~")
+    separator <- " "
+  } else {
+    repeated.portion <- paste(predictors.repeat, collapse = " + ") %>%
+      paste(response, ., sep = " ~ ")
+    separator <- " + "
+  }
+  formula.vector <- vector(mode = "character", length(predictors.unique))
+  for (i in seq_along(predictors.unique)) {
+    formula.vector[[i]] <- paste(repeated.portion, predictors.unique[[i]],
+                               sep = separator)
+  }
+  formula.vector
+}
+
+FitModels <- function(formula.vector, data) {
+  # Builds formulas to be used as input for lm
+  #
+  # Args:
+  #   response: A chr vector of the variable to be predicted by the others
+  #   predictors.unique: A chr vector of variables to iterate (fit 1 model each)
+  #   predictors.repeat: A chr vector of variables to appear in all models
+  #
+  # Returns:
+  #
+  result <- tibble(model.name = formula.vector) %>%
+    mutate(model.object = map(model.name, lm, data = data))
+  result
+}
+
+MasterFunc <- function(data, response, predictors.unique,
+                       predictors.repeat = NULL) {
+  # Builds formulas to be used as input for lm
+  #
+  # Args:
+  #   response: A chr vector of the variable to be predicted by the others
+  #   predictors.unique: A chr vector of variables to iterate (fit 1 model each)
+  #   predictors.repeat: A chr vector of variables to appear in all models
+  #
+  # Returns:
+  #
+  formula.vector <- MakeLmInput2(response = response,
+                                 predictors.unique = predictors.unique,
+                                 predictors.repeat = predictors.repeat)
+  
+  table.1 <- FitModels(formula.vector = formula.vector, data = data)
+  table.2 <- table.1$model.object %>%
+    map(GetModelStats) %>%
+    bind_rows
+  result <- bind_cols(table.1, table.2) %>%
+    arrange(model.pvalue)
+  result
+}
+
+trash <- function() {   
+  all.vars <- names(mtcars)[-c(1:2)]  # Drop vehicle name and mpg variables
+  test <- all.vars %>%
+    MakeLmInput2(response = "mpg") %>%  # Converts chr vector to lm input list
+    map(lm, data = mtcars) %>%  # Fits a model to each variable
+    SortModels() %>%  # wt has the lowest p-value, start there
+    print()
+}
 
 # Part 1) Loading and preprocessing the data-----------------------------------
 
@@ -287,18 +410,24 @@ par(mfrow = c(1, 2))  # Setup plot space
 
 # Start building a model with the idea of forward selection in mind
 # First check which variable has the strongest relationship with mpg by itself
-all.variables <- names(mtcars)[-c(1:2)]  # Drop vehicle name and mpg variables
-all.variables %>%
-  MakeLmInput(response = "mpg") %>%  # Converts chr vector to lm input list
-  map(lm, data = mtcars) %>%  # Fits a model to each variable
-  SortVariables() %>%  # wt has the lowest p-value, start there
-  print()
-rm(all.variables)
-
-
-
-
-
+all.vars <- names(mtcars)[-c(1:2)]  # Drop vehicle name and mpg variables
+round1 <- MasterFunc(data = mtcars, response = "mpg",
+                     predictors.unique = all.vars)
+print(round1)
+#rm(all.vars)
+fit1 <- lm(mpg ~ wt, data = mtcars)  # Adj. Rsqr = 0.7446, p-value = 1.3e-10
+# Check out the residuals
+#print(hist(residuals(fit1)))  # Right skew, ranges from -4.54 to 6.87
+#print(plot(residuals(fit1) ~ mtcars$wt))  # U shape, high at ends low in center
+#print(plot(mtcars$mpg ~ mtcars$wt))  # Original plot does show slight curvature
+# Try some transforms to see if it striaghtens out
+#print(plot(log2(mtcars$mpg) ~ mtcars$wt))  # Improved compared to no transform
+#print(plot(mtcars$mpg ~ log2(mtcars$wt)))  # Improved compared to previous plot
+#print(plot(log2(mtcars$mpg) ~ log2(mtcars$wt)))  # Curved the opposite way now
+# Based on the plots log2(wt) seems promising, but check the fits also
+#fit2 <- lm(log2(mpg) ~ wt, data = mtcars)
+#fit3 <- lm(mpg ~ log2(wt), data = mtcars)
+#fit4 <- lm(log2(mpg) ~ log2(wt), data = mtcars)
 
 
 
