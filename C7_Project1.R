@@ -25,11 +25,11 @@ library(tidyverse)
 
 # Part 0) Function definitions--------------------------------------------------
 
-# Create a function to fit and evaluate several models from input variables
-FitAndEvalModels <- function(data, response, predictors.unique,
+# Create a function to fit, summarize, and sort models from input variables
+FitAndSortModels <- function(data, response, predictors.unique,
                              predictors.repeat = NULL) {
   # Assembles formulas to be used as input for lm, fits models, displays summary
-  # statistics side-by-side, and sorts the result by increasing pvalue
+  # statistics side-by-side, and sorts the result by decreasing adj. R-squared
   #
   # Args:
   #   data: the data set containing the variables, passed to lm
@@ -51,9 +51,9 @@ FitAndEvalModels <- function(data, response, predictors.unique,
   table.2 <- table.1$model.object %>%  # List of the models
     map(GetModelStats) %>%  # Apply function to each element, output as list
     bind_rows()  # Condense the list down to a tibble
-  # Lastly bind the two tibbles together and sort by ascending pvalue
+  # Lastly bind the two tibbles together and sort by decreasing adj. R-Squared
   result <- bind_cols(table.1, table.2) %>%
-    arrange(model.pvalue)
+    arrange(desc(Ad.R.Squared))
   result  # Return the tibble
 }
 
@@ -102,7 +102,7 @@ GetModelStats <- function(model) {
 # Part 1) Loading and preprocessing the data-----------------------------------
 
 data("mtcars")
-mtcars <- as_tibble(mtcars, rownames = "Vehicle")
+mtcars <- as_tibble(mtcars, rownames = "vehicle")
 #print(str(mtcars))  # Check out the variables and preview some values
 # The variables are mostly self-explanatory but checking the help file is useful
 # mpg	= Miles/(US) gallon
@@ -277,31 +277,90 @@ levels(mtcars$am) <- c("Automatic", "Manual")
 
 # Start building a model with the idea of forward selection in mind
 # First check which variable has the strongest relationship with mpg by itself
+
 # Collect all the predictor variables into a character vector
-all.vars <- mtcars %>%
-  select(-Vehicle, -mpg) %>%  # Drop the non-predictors
+round1.vars <- mtcars %>%
+  select(-vehicle, -mpg) %>%  # Drop the non-predictor variabels
   names()
-round1 <- FitAndEvalModels(data = mtcars, response = "mpg",
-                     predictors.unique = all.vars)
-print(round1)
-#vars.2 <- all.vars[-5]
-#round2 <- FitAndEvalModels(data = mtcars, response = "mpg",
-#                           predictors.unique = vars.2, predictors.repeat = "wt")
-#print(round2)
-#rm(all.vars)
-#fit1 <- lm(mpg ~ wt, data = mtcars)  # Adj. Rsqr = 0.7446, p-value = 1.3e-10
-# Check out the residuals
-#print(hist(residuals(fit1)))  # Right skew, ranges from -4.54 to 6.87
-#print(plot(residuals(fit1) ~ mtcars$wt))  # U shape, high at ends low in center
-#print(plot(mtcars$mpg ~ mtcars$wt))  # Original plot does show slight curvature
-# Try some transforms to see if it striaghtens out
-#print(plot(log2(mtcars$mpg) ~ mtcars$wt))  # Improved compared to no transform
-#print(plot(mtcars$mpg ~ log2(mtcars$wt)))  # Improved compared to previous plot
-#print(plot(log2(mtcars$mpg) ~ log2(mtcars$wt)))  # Curved the opposite way now
+# Fit, summarize, and sort a series of models
+round1.table <- FitAndSortModels(data = mtcars, response = "mpg",
+                                 predictors.unique = round1.vars)
+#print(round1.table)  # mpg ~ wt is the top model
+round1.model <- round1.table$model.object[[1]]  # Store the model object
+rm(round1.vars, round1.table)
+
+# Check out the residuals of the mpg ~ wt model
+#hist(residuals(round1.model))  # Right skew, ranges from -4.54 to 6.87
+#plot(residuals(round1.model) ~ mtcars$wt)  # V shape, high at ends low in center
+#plot(mtcars$mpg ~ mtcars$wt)  # Original plot does show slight curvature
+
+# Try some log transforms to see if it straightens out
+#plot(log2(mtcars$mpg) ~ mtcars$wt)  # Improved compared to no transform
+#plot(mtcars$mpg ~ log2(mtcars$wt))  # Improved compared to previous plot
+#plot(log2(mtcars$mpg) ~ log2(mtcars$wt))  # Curved the opposite way now
+
 # Based on the plots log2(wt) seems promising, but check the fits also
-#fit2 <- lm(log2(mpg) ~ wt, data = mtcars)
-#fit3 <- lm(mpg ~ log2(wt), data = mtcars)
-#fit4 <- lm(log2(mpg) ~ log2(wt), data = mtcars)
+round1b.vars <- c("wt", "log2(wt)")
+round1b.table1 <- FitAndSortModels(mtcars, "mpg", round1b.vars)
+round1b.table2 <- FitAndSortModels(mtcars, "log2(mpg)", round1b.vars)
+round1b.table <- bind_rows(round1b.table1, round1b.table2) %>%
+  arrange(desc(Ad.R.Squared))
+#print(round1b.table)  # mpg ~ log2(wt) outperforms original and other transforms
+round1b.model <- round1b.table$model.object[[1]]  # Store the model object
+rm(round1b.vars, round1b.table1, round1b.table2, round1b.table)
+
+# Check the residuals of the transform model
+#hist(residuals(round1b.model))  # Stronger right skew, ranges from -3.74 to 6.62
+#plot(residuals(round1b.model) ~ mtcars$wt)  # V shape is lessened, wider
+
+# Based on the checks above the log2(wt) is worth considering in future
+# iterations of the model fitting, but the residual plots were not improved
+# enough to jump to any conclusion about it. Add log2(wt) to the dataset below.
+mtcars2 <- mutate(mtcars, "log2(wt)" = log2(wt))  # Add transform column
+
+# The next round of models will consider interaction effects. It will also fit
+# two series of models, one with wt and one with log2(wt)
+round2a.interactions <- c("cyl * disp", "disp * hp", "disp * wt", "disp * qsec",
+                          "hp * wt", "hp * carb", "hp * qsec", "drat * wt",
+                          "drat * qsec", "wt * qsec", "wt * vs", "wt * am",
+                          "wt * gear", "wt * carb", "qsec * am", "qsec * gear",
+                          "qsec * carb")
+round2a.vars <- mtcars2 %>%
+  select(-vehicle, -mpg, -wt, -"log2(wt)") %>%  # Reduce to only repeated vars
+  names() %>%  # Extract main variables
+  c(round2a.interactions)  # Add in interaction effects
+# Fit, summarize, and sort a series of models
+round2a.table <- FitAndSortModels(data = mtcars2, response = "mpg",
+                                 predictors.unique = round2a.vars,
+                                 predictors.repeat = "wt")
+print(round2a.table)  # mpg ~ wt + hp + wt * hp is the top model
+round2a.model <- round2a.table$model.object[[1]]  # Store the model object
+rm(round2a.interactions, round2a.vars)
+
+# Now repeat but replacing wt with log2(wt)
+round2b.interactions <- c("cyl * disp", "disp * hp", "disp * log2(wt)",
+                          "disp * qsec", "hp * log2(wt)", "hp * carb",
+                          "hp * qsec", "drat * log2(wt)", "drat * qsec",
+                          "log2(wt) * qsec", "log2(wt) * vs", "log2(wt) * am",
+                          "log2(wt) * gear", "log2(wt) * carb", "qsec * am",
+                          "qsec * gear", "qsec * carb")
+round2b.vars <- mtcars2 %>%
+  select(-vehicle, -mpg, -wt, -"log2(wt)") %>%  # Reduce to only repeated vars
+  names() %>%  # Extract main variables
+  c(round2b.interactions)  # Add in interaction effects
+# Fit, summarize, and sort a series of models
+round2b.table <- FitAndSortModels(data = mtcars2, response = "mpg",
+                                  predictors.unique = round2b.vars,
+                                  predictors.repeat = "log2(wt)")
+print(round2b.table)  # mpg ~ wt + hp + wt * hp is the top model
+round2b.model <- round2b.table$model.object[[1]]  # Store the model object
+rm(round2b.interactions, round2b.vars)
+
+round2.table <- bind_rows(round2a.table, round2b.table) %>%
+  arrange(desc(Ad.R.Squared))
+print(round2.table)
+
+
 
 
 # Old---------------------------------------------------------------------------
