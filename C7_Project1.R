@@ -485,6 +485,7 @@ rm(test1, test2, mtcars2, round2.table)
 # Considering all these factors, I will select mpg ~ hp + wt + hp * wt as the
 # winning model for this round. All that remains is to confirm if adding any
 # additional variables can improve the model
+round2.model <- lm(mpg ~ hp + wt + hp * wt, data = mtcars)
 
 
 # Part 3c) Model Selection Round 3----------------------------------------------
@@ -492,15 +493,47 @@ rm(test1, test2, mtcars2, round2.table)
 # The base model from the previous round was: mpg ~ hp + wt + hp * wt
 # The next round of models will consider several additions to the model,
 # including interaction effects, to see if any improvements can be made
+round3.interactions <- c("cyl * disp", "disp * hp", "disp * wt", "disp * qsec",
+                         "hp * carb", "hp * qsec", "drat * wt", "drat * qsec",
+                         "wt * qsec", "wt * vs", "wt * am", "wt * gear",
+                         "wt * carb", "qsec * am", "qsec * gear", "qsec * carb")
+round3.vars <- mtcars %>%
+  select(-vehicle, -mpg, -wt, -hp) %>%  # Reduce to only repeated vars
+  names() %>%  # Extract main variables
+  c(round3.interactions)  # Add in interaction effects
+# Fit, summarize, and sort a series of models
+round3.table <- FitAndSortModels(data = mtcars, response = "mpg",
+                                 predictors.unique = round3.vars,
+                                 predictors.repeat = c("hp", "wt", "hp * wt"))
+#print(round3.table)  # mpg ~ wt + hp + wt * hp is the top model
+#round2a.model <- round2a.table$model.object[[1]]  # Store the model object
+rm(round3.interactions, round3.vars)
+
+# Check if any of the additions outperform the base model in Anova
+model.list <- round3.table$model.object
+result <- vector("numeric", length(model.list))
+for(i in seq_along(model.list)) {
+  result[[i]] <- anova(round2.model, model.list[[i]])$`Pr(>F)`[[2]]
+}
+round3.table %>%
+  select(model.name) %>%
+  mutate(anova.pvalue = result) %>%
+  arrange(anova.pvalue) #%>%
+#  print()
+rm(model.list, i, result, round3.table)
+# The check above shows that none of the models with additional factors can
+# significantly improve the model, so it looks like the best model that can
+# describe this data is mpg ~ hp + wt + hp * wt
 
 
+# Part 4) Address the specific questions from the project instructions----------
+
+# The first question was: "Is an automatic or manual transmission better for
+# fuel economy."
 
 
-
-
-
-
-
+# The second question was: "Quantify the impact of transmission type on fuel
+# economy"
 
 
 
