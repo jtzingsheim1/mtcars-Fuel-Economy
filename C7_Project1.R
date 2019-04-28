@@ -197,6 +197,14 @@ levels(mtcars$am) <- c("Automatic", "Manual")
 # The regression model must correct for these interactions and correctly
 # isolate the effect of the transmission type on fuel economy.
 
+# Take a closer look at how mpg varies with wt when grouped by am
+#ggplot(data = mtcars) +
+#  geom_point(mapping = aes(x = wt, y = mpg, color = am))
+# There is almost no overlap in the two groups. In fact, only two vehicles with
+# automatic transmission have weights below 3.16, and only two vehicles with
+# manual transmission have weights above 3.16.
+
+
 # Check how mpg varies with the other variables
 # It was shown above that mpg decreases with number of cylinders, as expected
 #plot(mtcars$mpg ~ mtcars$disp)  # Negative slope, to be expected
@@ -528,14 +536,36 @@ rm(model.list, i, result, round3.table)
 
 # Part 4) Address the specific questions from the project instructions----------
 
-# The first question was: "Is an automatic or manual transmission better for
-# fuel economy."
-
+# The first question is: "Is an automatic or manual transmission better for fuel
+# economy." To address this the transmission type must be added back to the base
+# model.
+part4.model <- lm(mpg ~ hp + wt + hp * wt + am, data = mtcars)
+#print(summary(part4.model))
+# The coefficient on transmission type is not significant, and the magnitude of
+# the coefficient is quite small. Check anova to confirm if inclusion of the
+# variable is warranted.
+#print(anova(round2.model, part4.model))  # p-value 0.93, am variable is insignificant
+# The answer to this question is that when predicting fuel economy with this
+# data set, once one controls for the impact of hp, wt, and the interaction of
+# hp with wt, the effect of the transmission type is not statistically
+# significant. If one includes the variable anyways there appears to be a 0.13
+# mpg improvement when using a manual transimission instead of automatic, but
+# this trend is likely due to chance.
 
 # The second question was: "Quantify the impact of transmission type on fuel
-# economy"
-
-
+# economy." As mentioned above the impact is not statistically significant when
+# you control for the effects of the statistically significant predictors. If
+# one fits a model anyways there is a 0.13 mpg improvement when using manual
+# transmission instead of automatic, but this trend is likely due to chance.
+# The expected values of mpg are shown below after accounting for the other vars
+pred.mpg.auto <- c(int = 1, hp = mean(mtcars$hp), wt = mean(mtcars$wt), am = 0,
+                   "hp:wt" = mean(mtcars$hp * mtcars$wt)) %>%
+  "*" (coefficients(part4.model)) %>%
+  sum()  # 20.04 mpg
+pred.mpg.man <- pred.mpg.auto %>%
+  "+" (coefficients(part4.model)[[4]])  # 20.16 mpg
+rm(pred.mpg.auto, pred.mpg.man, part4.model)
+# The difference can be attributed to random chance
 
 
 # Old---------------------------------------------------------------------------
@@ -627,4 +657,9 @@ rm(model.list, i, result, round3.table)
 # contributions to the model's performance
 # The forward selection method converged on the same model as the backward
 # elimination method.
+
+#ybar <- coefficients(round2.model)[[1]] +
+#  coefficients(round2.model)[[2]] * mean(mtcars$hp) +
+#  coefficients(round2.model)[[3]] * mean(mtcars$wt) +
+#  coefficients(round2.model)[[4]] * mean(mtcars$hp * mtcars$wt)
 
