@@ -20,7 +20,7 @@
 
 library(datasets)
 library(tidyverse)
-#library(car)
+library(car)  # For VIF function
 
 
 # Part 0) Function definitions--------------------------------------------------
@@ -273,7 +273,7 @@ levels(mtcars$am) <- c("Automatic", "Manual")
 # - qsec and carb
 
 
-# Part 3) Model Selection-------------------------------------------------------
+# Part 3a) Model Selection Round 1----------------------------------------------
 
 # Start building a model with the idea of forward selection in mind
 # First check which variable has the strongest relationship with mpg by itself
@@ -317,6 +317,10 @@ rm(round1b.vars, round1b.table1, round1b.table2, round1b.table)
 # iterations of the model fitting, but the residual plots were not improved
 # enough to jump to any conclusion about it. Add log2(wt) to the dataset below.
 mtcars2 <- mutate(mtcars, "log2(wt)" = log2(wt))  # Add transform column
+rm(round1.model, round1b.model)
+
+
+# Part 3b) Model Selection Round 2----------------------------------------------
 
 # The next round of models will consider interaction effects. It will also fit
 # two series of models, one with wt and one with log2(wt)
@@ -333,8 +337,8 @@ round2a.vars <- mtcars2 %>%
 round2a.table <- FitAndSortModels(data = mtcars2, response = "mpg",
                                  predictors.unique = round2a.vars,
                                  predictors.repeat = "wt")
-print(round2a.table)  # mpg ~ wt + hp + wt * hp is the top model
-round2a.model <- round2a.table$model.object[[1]]  # Store the model object
+#print(round2a.table)  # mpg ~ wt + hp + wt * hp is the top model
+#round2a.model <- round2a.table$model.object[[1]]  # Store the model object
 rm(round2a.interactions, round2a.vars)
 
 # Now repeat but replacing wt with log2(wt)
@@ -352,13 +356,151 @@ round2b.vars <- mtcars2 %>%
 round2b.table <- FitAndSortModels(data = mtcars2, response = "mpg",
                                   predictors.unique = round2b.vars,
                                   predictors.repeat = "log2(wt)")
-print(round2b.table)  # mpg ~ wt + hp + wt * hp is the top model
-round2b.model <- round2b.table$model.object[[1]]  # Store the model object
+#print(round2b.table)  # mpg ~ log2(wt) + qsec * am is the top model
+#round2b.model <- round2b.table$model.object[[1]]  # Store the model object
 rm(round2b.interactions, round2b.vars)
 
 round2.table <- bind_rows(round2a.table, round2b.table) %>%
   arrange(desc(Ad.R.Squared))
-print(round2.table)
+#print(round2.table)
+rm(round2a.table, round2b.table)
+
+# Im interested in the first 7 models
+#print(map(round2.table$model.object[1:7], summary))
+model.list <- round2.table$model.object[1:7]
+
+# Model 1: mpg ~ log2(wt) + qsec + am + qsec * am
+# This model has five terms, and the only three star coefficient is log2(wt).
+# The intercept is a two star, and then qsec is a one star. The coefficients on
+# amManual and qsec:amManual are above 0.1. It is worth checking Anova for this
+# set of nested models to see which terms are justified
+test1 <- lm(mpg ~ log2(wt), mtcars2)
+test2 <- lm(mpg ~ log2(wt) + qsec, mtcars2)
+test3 <- lm(mpg ~ log2(wt) + qsec + am, mtcars2)
+test4 <- lm(mpg ~ log2(wt) + qsec + am + qsec * am, mtcars2)
+#print(anova(test1, test2, test3, test4))  # test2 is the model to keep
+rm(test1, test2, test3, test4)
+# Anova suggests that the extra terms are not contributing enough to the model,
+# so despite the R-Squared value of this model, it is no better than the simpler
+# model of mpg ~ log2(wt) + qsec
+
+# Model 2: mpg ~ disp + hp + disp * hp + log2(wt)
+# This model has five terms, and the thre star coefficients are the intercept
+# and log2(wt). hp is a two star, but disp and disp:hp are one star. Check Anova
+# for this set of nested models
+test1 <- lm(mpg ~ log2(wt), mtcars2)
+test2 <- lm(mpg ~ log2(wt) + hp, mtcars2)
+test3 <- lm(mpg ~ log2(wt) + hp + disp, mtcars2)
+test4 <- lm(mpg ~ log2(wt) + hp + disp + disp * hp, mtcars2)
+#print(anova(test1, test2, test3, test4))  # test2 is the model to keep
+rm(test1, test2, test3, test4)
+# Anova suggests that some of the extra terms are not justified, so this model
+# should be reduced to the simpler mpg ~ log2(wt) + hp
+
+# Model 3: mpg ~ hp + wt + hp * wt
+# This model has four terms, and all of them are three stars, check Anova
+test1 <- lm(mpg ~ wt, mtcars2)
+test2 <- lm(mpg ~ wt + hp, mtcars2)
+test3 <- lm(mpg ~ wt + hp + hp * wt, mtcars2)
+#print(anova(test1, test2, test3))  # test3 is the model to keep
+rm(test1, test2, test3)
+# Anova confirms the inclusion of all these terms is justified
+
+# Model 4: mpg ~ log2(wt) + qsec + log2(wt) * qsec
+# This model has four terms, but none have any stars, check Anova
+test1 <- lm(mpg ~ log2(wt), mtcars2)
+test2 <- lm(mpg ~ log2(wt) + qsec, mtcars2)
+test3 <- lm(mpg ~ log2(wt) + qsec + log2(wt) * qsec, mtcars2)
+#print(anova(test1, test2, test3))  # test2 is the model to keep
+rm(test1, test2, test3)
+# Anova suggests that the interaction term is not justified, and this model
+# could be reduced to mpg ~ log2(wt) + qsec
+
+# Model 5: mpg ~ hp + log2(wt) + hp * log2(wt)
+# This model has four terms - the intercept and log2(wt) have three stars, and
+# hp has two stars. log2(wt):hp has no stars, check Anova.
+test1 <- lm(mpg ~ log2(wt), mtcars2)
+test2 <- lm(mpg ~ log2(wt) + hp, mtcars2)
+test3 <- lm(mpg ~ log2(wt) + hp + log2(wt) * hp, mtcars2)
+#print(anova(test1, test2, test3))  # test2 is the model to keep
+rm(test1, test2, test3)
+# Anova suggests that the interaction term is not justified, and this model
+# could be reduced to mpg ~ log2(wt) + qsec
+
+# Model 6: mpg ~ log2(wt) + qsec
+# All three terms in this model have three stars. Previous Anova has shown this
+# model doesnt need to be reduced.
+
+# Model 7: mpg ~ hp + log2(wt) + qsec + hp * sec
+# This model has five terms, and log2(wt) is the only three star term. None of
+# the other terms have any stars. 
+test1 <- lm(mpg ~ log2(wt), mtcars2)
+test2 <- lm(mpg ~ log2(wt) + qsec, mtcars2)
+test3 <- lm(mpg ~ log2(wt) + qsec + hp, mtcars2)
+test4 <- lm(mpg ~ log2(wt) + qsec + hp + hp * qsec, mtcars2)
+#print(anova(test1, test2, test3, test4))  # test2 is the model to keep
+rm(test1, test2, test3, test4, model.list)
+# Anova suggests that some of the extra terms are not justified, so this model
+# should be reduced to the simpler mpg ~ log2(wt) + qsec
+
+# The checks above show that the contenders for this round are:
+# 6) mpg ~ log2(wt) + qsec
+# 14) mpg ~ log2(wt) + hp
+# 3) mpg ~ hp + wt + hp * wt
+#print(round2.table[c(3, 6, 14), ])
+# Of those three models, log2(wt) + hp can be eliminated
+
+# Take a closer look at the mpg ~ hp * wt model
+test1 <- lm(mpg ~ hp + wt + hp * wt, data = mtcars2)
+# Check out the residuals
+#hist(residuals(test1))  # Right skew, ranges from -3.06 to 4.55
+#plot(residuals(test1) ~ mtcars$wt)  # Looks like random noise
+#plot(residuals(test1) ~ mtcars$hp)  # Looks triangular
+# See if there is a pattern to the observations with the largest residuals
+#mtcars %>%
+#  mutate(residuals = resid(test1) ^ 2) %>%
+#  arrange(desc(residuals)) %>%
+#  print()  # No pattern is evident
+
+# Take a closer look at the residuals of the mpg ~ log2(wt) + qsec model
+test2 <- lm(mpg ~ log2(wt) + qsec, data = mtcars2)
+# Check the residuals
+#hist(residuals(test2))  # Looks much more normal, ranges from -4.07 to 5.47
+#plot(y = residuals(test2), x = log2(mtcars2$wt))  # Looks like random noise
+#plot(residuals(test2) ~ mtcars2$qsec)  # Looks like random noise
+# See if there is a pattern to the observations with the largest residuals
+#mtcars2 %>%
+#  mutate(residuals = resid(test2) ^ 2) %>%
+#  arrange(desc(residuals)) %>%
+#  print()  # No pattern is evident
+rm(test1, test2, mtcars2, round2.table)
+
+#print(round2.table[c(3, 6), ])
+# At this point both models seem reasonable and have similar performance. All
+# else being equal I favor the model without the qsec term since it is not a
+# direct property of the car, it is a variable that is dependent on all the
+# others, similar to mpg. Furthermore, all else being equal, I favor the model
+# that does not transform wt ad the results are more easily interpreted. Lastly,
+# the R.squared and adj. R.squared values are superior for the hp * wt model.
+# Considering all these factors, I will select mpg ~ hp + wt + hp * wt as the
+# winning model for this round. All that remains is to confirm if adding any
+# additional variables can improve the model
+
+
+# Part 3c) Model Selection Round 3----------------------------------------------
+
+# The base model from the previous round was: mpg ~ hp + wt + hp * wt
+# The next round of models will consider several additions to the model,
+# including interaction effects, to see if any improvements can be made
+
+
+
+
+
+
+
+
+
 
 
 
