@@ -5,11 +5,35 @@ date: "4/29/2019"
 output: pdf_document
 ---
 
+
 ```{r setup, include=FALSE}
 
 knitr::opts_chunk$set(echo = TRUE)
 
 ```
 
+
 ## Overview
+
+This report is for the peer-graded project in the Regression Models course from
+Johns Hopkins University within the Data Science Specialization on Coursera. The
+instructions say to perform exploratory data analysis and use regression models
+with the `mtcars` data set to answer these questions:
+>
+1. Is an automatic or manual transmission better for fuel economy
+2. Quantify the impact of transmission type on fuel economy
+
+
+## Executive Summary
+
+The objective of this analysis was to determine the impact of transmission type
+on fuel economy in the `mtcars` data set. The data were loaded into R and
+pre-processed. Exploratory data analysis was performed, and potential
+interaction effects were identified. Model selection progressed in stages, and
+the best model for predicting fuel economy was found to take the form of
+`mpg ~ hp + wt + hp * wt`. Adding the `am` variable to this model did not
+significantly improve the model, so it was concluded that transmission type does
+not have a significant impact on fuel economy in this data set. While impact was
+quantified, it is important to note that it is likely due to random chance.
+
 
