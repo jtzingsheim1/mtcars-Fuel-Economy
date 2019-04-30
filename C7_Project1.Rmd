@@ -60,9 +60,12 @@ Except for the vehicle names, all the variables came through as numeric, but it
 is clear that there is a mix of numeric, categorical, and discrete variables
 here. The help document can provide additional information on the descriptions,
 units, and coding of the factor variables. The next code chunk will assess the
-discrete variables and convert the data types as needed. This report has a
-length limitation, and in the interest of conserving space the plot output will
-be suppressed, but descriptions of the plots are in the comments.
+discrete variables and convert the data types as needed.
+
+The assignment instructions specify a maximum length for this report, so in the
+interest of conserving space, some text and figure output will be suppressed
+throughout the report. When output is suppressed it will be noted at the
+beginning of the code chunk and output will be described as comments.
 
 ```{r preprocessing, fig.show = "hide"}
 
@@ -70,11 +73,11 @@ be suppressed, but descriptions of the plots are in the comments.
 # Check if the discrete variables should be treated as numeric or categorical
 par(mfrow = c(3, 2))  # Setup plot space
 boxplot(mtcars$mpg ~ mtcars$cyl)
-plot(mtcars$mpg ~ mtcars$cyl)  # Only three levels, but seems linear
+plot(mtcars$mpg ~ mtcars$cyl)  # Only three levels, but decreases mostly linear
 boxplot(mtcars$mpg ~ mtcars$gear)
-plot(mtcars$mpg ~ mtcars$gear)  # Only three levels, and doesn't seem linear
+plot(mtcars$mpg ~ mtcars$gear)  # Only three levels, shaped like inverted V
 boxplot(mtcars$mpg ~ mtcars$carb)
-plot(mtcars$mpg ~ mtcars$carb)  # Six levels, and somewhat linear
+plot(mtcars$mpg ~ mtcars$carb)  # Six levels, and decreasing somewhat linearly
 # Based on the checks above, cyl and carb will be treated as numeric and gear
 # will be treated as categorical
 
@@ -92,7 +95,115 @@ levels(mtcars$am) <- c("Automatic", "Manual")
 ```
 
 
+## Part 2) Exploratory Data Analysis
 
+Next the variables will be checked for NA values, variation, and covariation.
+
+```{r EDA.variation, results = "hide", fig.show = "hide"}
+
+# In this code chunk, text and figure output is suppressed
+# Check for NA values and check variation of the variables
+summary(mtcars)  # No NA values; also disp, hp, and carb have means > median
+par(mfrow = c(1, 2))  # Setup plot space
+hist(mtcars$mpg)  # Nothing unusual, fewer cars in 25 bin, could be noise
+plot(as.factor(mtcars$cyl))  # Only three possible values: 4, 6, and 8
+hist(mtcars$disp)  # Right skew/flat with 4 obs per bin of 50 wide
+hist(mtcars$hp)  # Right skew, fewer observations of large hp
+hist(mtcars$drat)  # Looks normally distributed
+hist(mtcars$wt)  # Only one car with weight between 4k and 5k, and then 3 at 5k
+hist(mtcars$qsec)  # Looks normally distributed
+# Engine shape is fairly evenly split: 18 & 14 observations each
+# Transmission type is faily evenly split: 19 & 13 observations each
+# Gear is mostly 3s and 4s, with only 5 observations in the 5 gear category
+plot(as.factor(mtcars$carb))  # Nearly all 1s, 2s, and 4s, then 1 each at 6 & 8
+
+```
+
+The previous chunk provided general information about each varible on its own,
+and in the next section covariation of the variables will be checked. First
+consider the original question of how trans type relates to mpg.
+
+```{r EDA.cov1}
+
+par(mfrow = c(1, 2))  # Setup plot space
+boxplot(mtcars$mpg ~ mtcars$am, ylab = "mpg [mpg]")  # mpg vs trans type
+boxplot(mtcars$wt ~ mtcars$am, ylab = "weight [klbs]")  # wt vs. trans type
+
+```
+
+In the first plot above one could jump to the conclusion that `mpg` is clearly
+higher with manual transmission. However in the second plot one can see that
+manual transmission vehicles tend to be lighter in this dataset, and common
+sense suggests that `mpg` should be higher for lower weight vehicles. Many of
+these variables can be expected to correlate with `mpg` and/or with each other.
+The regression model must correct for these interactions and isolate the effect
+of the transmission type on fuel economy.
+
+The `vif` function can be used to demonstrate how correlated the variables are
+to eachother. In the code chunk below, one can see that the minimum variance
+inflation factor of any varible is 4.98 which is already high. The average is
+12.7, and the maximum is 23.5, so this confirms that these variables tend to be
+highly correlated with each other.
+
+```{r EDA.cov2, fig.show = "hide"}
+
+# In this code chunk figure output is suppressed
+# Check the variance inflation factors for all variables 
+lm(mpg ~ cyl + disp + hp + drat + wt + qsec + vs + am + gear + carb,
+   data = mtcars) %>%  # Fit a model of all variables
+  vif() %>%  # Apply vif function to the model
+  summary() %>%
+  print()
+
+# Check how mpg varies with the other variables
+# It was shown above that mpg decreases with number of cylinders, as expected
+plot(mtcars$mpg ~ mtcars$disp)  # Negative slope, to be expected
+plot(mtcars$mpg ~ mtcars$hp)  # Negative slope, to be expected
+plot(mtcars$mpg ~ mtcars$drat)  # Positively sloped, opposite of expected
+plot(mtcars$mpg ~ mtcars$wt)  # Negative slope, very much expected
+plot(mtcars$mpg ~ mtcars$qsec)  # Generally positive, faster cars consume more
+plot(mtcars$mpg ~ mtcars$vs)  # Straight appears to have a significantly higher
+# mpg, but such a strong trend is not expected
+# It was shown above that mpg appears higher for manual cars, but this could be
+# misleading based on the other factors
+# It was shown above that there doesnt appear to be a strong trend with mpg vs
+# number of gears, but one isn't really expected either
+# It was shown above that there is a negative slope between mpg and carb, but
+# such a strong relationship isn't really expected
+
+```
+
+A few of the interesting notes above were followed up in the analysis. In the
+interest of conserving space those details will not be outlined here. If
+interested the complete EDA portion can be found on the GitHub repo for this
+project submission here. In summary, the unexpected results above are no longer
+present once other factors are controlled for. In the final EDA code chunk a few
+additional covariations are explored.
+
+```{r EDA.cov3, fig.show = "hide"}
+
+# In this code chunk figure output is suppressed
+# Exploratory plots of interactions
+plot(mtcars$disp ~ mtcars$am)  # Lower for manual, but expected considering wt
+plot(mtcars$hp ~ mtcars$disp)  # Positive slope, to be expected
+plot(mtcars$hp ~ mtcars$wt)  # Positive slope, to be expected
+plot(mtcars$hp ~ mtcars$am)  # Lower for manual but expected if considering wt
+plot(mtcars$drat ~ mtcars$am)  # Higher for manual, but again the wt factor
+plot(mtcars$qsec ~ mtcars$am)  # Minimal difference, to be expected
+
+```
+
+It is also worth mentioning these two points:
+
+* By definition, displacement = effective cylinder volume * number of cyls
+* Quarter mile time is a result of many features of the car similar to mpg,
+while it can be expected to correlate with mpg, it is likely to be very
+correlated with all the other variables. This variable should be treated with
+caution when considering models.
+
+Based on the checks above and general knowledge about the variables, seventeen
+interaction effects will be considered in the analysis. The complete list can be
+found in the model selection section below.
 
 
 
