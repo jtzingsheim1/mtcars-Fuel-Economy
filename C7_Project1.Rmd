@@ -1,7 +1,7 @@
 ---
-title: "Analysis of Tranmission Impact on Fuel Economy in the mtcars Dataset"
+title: "The Impact of Transmission Type on Fuel Economy in the mtcars Dataset"
 author: "Justin Z"
-date: "4/29/2019"
+date: "April 29, 2019"
 output: pdf_document
 ---
 
@@ -19,8 +19,8 @@ This report is for the peer-graded project in the Regression Models course from
 Johns Hopkins University within the Data Science Specialization on Coursera. The
 instructions say to perform exploratory data analysis and use regression models
 with the `mtcars` data set to answer these questions:
->
-1. Is an automatic or manual transmission better for fuel economy
+
+>1. Is an automatic or manual transmission better for fuel economy
 2. Quantify the impact of transmission type on fuel economy
 
 
@@ -33,7 +33,71 @@ interaction effects were identified. Model selection progressed in stages, and
 the best model for predicting fuel economy was found to take the form of
 `mpg ~ hp + wt + hp * wt`. Adding the `am` variable to this model did not
 significantly improve the model, so it was concluded that transmission type does
-not have a significant impact on fuel economy in this data set. While impact was
-quantified, it is important to note that it is likely due to random chance.
+not have a significant impact on fuel economy in this data set. While the impact
+was quantified, it is important to note that it is likely due to random chance.
+
+
+## Part 1) Loading and Pre-processing the Data
+
+First the necessary packages are loaded along with the data (functions are
+described later).
+
+```{r loading, message = FALSE}
+
+# Messages suppressed for this code chunk
+library(datasets)  # For the mtcars data
+library(tidyverse)
+library(car)  # For the VIF function
+
+# Load and view some information about the data
+data("mtcars")
+mtcars <- as_tibble(mtcars, rownames = "vehicle")  # Put row names in a column
+str(mtcars)  # Check structure, all numeric besides vehicle names
+
+```
+
+Except for the vehicle names, all the variables came through as numeric, but it
+is clear that there is a mix of numeric, categorical, and discrete variables
+here. The help document can provide additional information on the descriptions,
+units, and coding of the factor variables. The next code chunk will assess the
+discrete variables and convert the data types as needed. This report has a
+length limitation, and in the interest of conserving space the plot output will
+be suppressed, but descriptions of the plots are in the comments.
+
+```{r preprocessing, fig.show = "hide"}
+
+# Figure output is suppressed in this code chunk
+# Check if the discrete variables should be treated as numeric or categorical
+par(mfrow = c(3, 2))  # Setup plot space
+boxplot(mtcars$mpg ~ mtcars$cyl)
+plot(mtcars$mpg ~ mtcars$cyl)  # Only three levels, but seems linear
+boxplot(mtcars$mpg ~ mtcars$gear)
+plot(mtcars$mpg ~ mtcars$gear)  # Only three levels, and doesn't seem linear
+boxplot(mtcars$mpg ~ mtcars$carb)
+plot(mtcars$mpg ~ mtcars$carb)  # Six levels, and somewhat linear
+# Based on the checks above, cyl and carb will be treated as numeric and gear
+# will be treated as categorical
+
+# Proceed with converting data types
+mtcars <- mtcars %>%
+  mutate(vs = as.factor(vs)) %>%
+  mutate(am = as.factor(am)) %>%
+  mutate(gear = as.factor(gear))
+
+# The vs and am variables are coded with zeros and ones, but it will be easier
+# to work with them by the names those values represent:
+levels(mtcars$vs) <- c("V-shaped", "Straight")
+levels(mtcars$am) <- c("Automatic", "Manual")
+
+```
+
+
+
+
+
+
+
+
+
 
 
