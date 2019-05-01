@@ -101,7 +101,7 @@ with the `mtcars` data set to answer these questions:
 ## Executive Summary
 
 The objective was to determine the impact of transmission type on fuel economy
-in the `mtcars` data set. The data were loaded into R, pre-processed, and then
+in the `mtcars` data set. The data were loaded into R and pre-processed then
 exploratory data analysis was performed. The model selection phase aimed to
 identify the best predictive model for fuel economy so that the role of
 transmission type could be assessed. Model selection progressed in stages, and
@@ -164,7 +164,7 @@ not shown here, if interested the complete EDA can be found in the
 [GitHub repo][1]. A key portion of this project is dealing with the covariation
 of the variables as shown in the next code chunk.
 
-```{r EDA.cov1}
+```{r EDAcov1}
 
 par(mfrow = c(1, 2))  # Setup plot space
 boxplot(mtcars$mpg ~ mtcars$am, ylab = "mpg [mpg]")  # mpg vs trans type
@@ -183,7 +183,7 @@ these variables were checked, and the values were quite high, confirming that
 these variables are all very much related. In the next code chunk the
 covariations with mpg were checked.
 
-```{r EDA.cov2}
+```{r EDAcov2}
 
 # These plots are commented out to conserve space
 # Check how mpg varies with the other variables
@@ -214,15 +214,15 @@ First the variables were checked to see which had the strongest relationship
 with `mpg`. To facilitate model selection a function called `FitAndSortModels`
 was written which takes variables as input, fits models, collects summary
 statistics, and sorts the models by performance. The code for this function is
-not shown, but its input and output is shown below.
+not shown, but its input and output is below.
 
-```{r MS.round1}
+```{r MSround1}
 
 # First check which variable has the strongest relationship with mpg by itself
 # Collect all the predictor variables into a character vector
 round1.vars <- mtcars %>%
   select(-vehicle, -mpg) %>%  # Drop the non-predictor variables
-  names()
+  names()  # Character vector, 10 long
 # Fit, summarize, and sort a series of models
 round1.table <- FitAndSortModels(data = mtcars, response = "mpg",
                                  predictors.unique = round1.vars)
@@ -248,7 +248,7 @@ very slightly, ultimately the simpler model was selected.
 The next round of model selection will consider interaction effects along with
 the main variables.
 
-```{r MS.round2a}
+```{r MSround2a}
 
 # Build a character vector of the interaction terms
 round2.interactions <- c("cyl * disp", "disp * hp", "disp * wt", "disp * qsec",
@@ -260,45 +260,26 @@ round2.interactions <- c("cyl * disp", "disp * hp", "disp * wt", "disp * qsec",
 round2.vars <- mtcars %>%
   select(-vehicle, -mpg, -wt) %>%  # Reduce to only the repeated vars
   names() %>%  # Extract main variables
-  c(round2.interactions)  # Add in interaction effects
+  c(round2.interactions)  # Add in interaction effects, chr vector, 26 long
 # Fit, summarize, and sort a series of models
 round2.table <- FitAndSortModels(data = mtcars, response = "mpg",
                                  predictors.unique = round2.vars,
                                  predictors.repeat = "wt")
-print(head(round2.table, n = 4))  # mpg ~ wt + hp + wt * hp is the top model
+print(head(round2.table, n = 4))  # mpg ~ wt + hp + hp * wt is the top model
 round2.model <- round2.table$model.object[[1]]  # Store the model object
 rm(round2.interactions, round2.vars, round2.table)
 
 ```
 
 The code chunk above shows that `mpg ~ wt + hp + hp * wt` is the top performing
-model from this round. The `anova` function and the residuals were checked for
-this model.
+model from this round. `anova` was checked for this model, and it suggested that
+all terms should be kept in the model. The residuals were checked as well, and
+they looked good, like random noise.
 
-```{r MS.round2b, results = "hide"}
-
-# Text results are hidden for this code chunk
-# Check anova results for the nested model series: mpg ~ wt + hp + hp * wt
-test1 <- lm(mpg ~ wt, mtcars)
-test2 <- lm(mpg ~ wt + hp, mtcars)
-test3 <- lm(mpg ~ wt + hp + hp * wt, mtcars)
-anova(test1, test2, test3)  # Anova suggests keeping all of the terms
-rm(test1, test2, test3)
-
-# Check out the residuals
-par(mfrow = c(1, 3))  # Setup plot space
-hist(residuals(round2.model))  # Right skew, ranges from -3.06 to 4.55
-plot(residuals(round2.model) ~ mtcars$wt)  # Looks like random noise
-plot(residuals(round2.model) ~ mtcars$hp)  # Somewhat triangular
-
-```
-
-The `anova` results above suggest keeping all three terms in the model. No
-significant pattern is noticed in the residuals either. An additional round of
-model selection was performed where 24 models were fit each with one additional
-term to the round 2 model. None of the additions improved the model enough to
-pass an Anova test, but to conserve space these results will not be shown here.
-Now that the model has been identified the original questions can be addressed.
+An additional round of model selection was performed where 24 models were fit -
+each with between one and three additional terms on top of the round 2 model.
+None of the additions improved the model enough to pass an `anova` test. Now
+that the model has been identified the original questions can be addressed.
 
 
 ## Part 4) Conclusions
@@ -315,7 +296,7 @@ shown by adding `am` to the model and checking `anova`.
 ```{r conclusion}
 
 part4.model <- lm(mpg ~ hp + wt + hp * wt + am, data = mtcars)
-print(summary(part4.model))  # coef of amManual is 0.13, pvalue is 0.9259
+print(summary(part4.model)$coefficients)  # coef of amManual is 0.13, pvalue is 0.9259
 print(anova(round2.model, part4.model))  # p-value 0.93
 
 ```
