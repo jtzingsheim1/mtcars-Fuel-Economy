@@ -150,8 +150,7 @@ mtcars <- mtcars %>%
   mutate(am = as.factor(am)) %>%
   mutate(gear = as.factor(gear))
 
-# The vs and am variables are coded with zeros and ones, but it will be easier
-# to work with them by the names those values represent:
+# Convert the zeros and ones of cateogrical variables
 levels(mtcars$vs) <- c("V-shaped", "Straight")
 levels(mtcars$am) <- c("Automatic", "Manual")
 
@@ -181,36 +180,31 @@ these variables can be expected to correlate with `mpg` and/or with each other.
 The regression model must correct for these interactions and isolate the effect
 of the transmission type on fuel economy. The variance inflation factors for
 these variables were checked, and the values were quite high, confirming that
-these variables are all very much related.
+these variables are all very much related. In the next code chunk the
+covariations with mpg were checked.
 
-```{r EDA.cov2, fig.show = "hide"}
+```{r EDA.cov2}
 
+# These plots are commented out to conserve space
 # Check how mpg varies with the other variables
-# It was shown above that mpg decreases with number of cylinders, as expected
-plot(mtcars$mpg ~ mtcars$disp)  # Negative slope, to be expected
-plot(mtcars$mpg ~ mtcars$hp)  # Negative slope, to be expected
-plot(mtcars$mpg ~ mtcars$drat)  # Positively sloped, opposite of expected
-plot(mtcars$mpg ~ mtcars$wt)  # Negative slope, very much expected
-plot(mtcars$mpg ~ mtcars$qsec)  # Generally positive, faster cars consume more
-plot(mtcars$mpg ~ mtcars$vs)  # Strong relationship, but that is not expected
-plot(mtcars$mpg ~ mtcars$am)  # Strong relationship, but that is not expected
-plot(mtcars$mpg ~ mtcars$gear)  # Weak relationship, as expected
-plot(mtcars$mpg ~ mtcars$carb)  # Negative relationship, but not expected
+#plot(mtcars$mpg ~ mtcars$cyl)  # Negative slope, as expected
+#plot(mtcars$mpg ~ mtcars$disp)  # Negative slope, to be expected
+#plot(mtcars$mpg ~ mtcars$hp)  # Negative slope, to be expected
+#plot(mtcars$mpg ~ mtcars$drat)  # Positively sloped, opposite of expected
+#plot(mtcars$mpg ~ mtcars$wt)  # Negative slope, very much expected
+#plot(mtcars$mpg ~ mtcars$qsec)  # Generally positive, faster cars consume more
+#plot(mtcars$mpg ~ mtcars$vs)  # Strong relationship, but that is not expected
+#plot(mtcars$mpg ~ mtcars$am)  # Strong relationship, but that is not expected
+#plot(mtcars$mpg ~ mtcars$gear)  # Weak relationship, as expected
+#plot(mtcars$mpg ~ mtcars$carb)  # Negative relationship, but not expected
 
 ```
 
 A few of the interesting notes above were followed up in the analysis, and the
 unexpected trends disappear when accounting for the significant variables.
-Additional covariations were explored, but that code is not shown here. It is
-also worth mentioning these two points:
-
-* By definition, displacement = effective cylinder volume * number of cyls
-* Quarter mile time is a result of many features of the car similar to mpg, it
-should be treated with caution when included in models.
-
-Based on the checks above and general knowledge about the variables, seventeen
-interaction effects will be considered in the analysis. The complete list can be
-found in the model selection section below.
+Additional covariations were explored, but that code is not shown here. Based on
+the checks above and general knowledge about the variables, 17 interaction
+effects will be considered in the analysis (complete list below).
 
 
 ## Part 3a) Model Selection, Round 1
@@ -232,7 +226,7 @@ round1.vars <- mtcars %>%
 # Fit, summarize, and sort a series of models
 round1.table <- FitAndSortModels(data = mtcars, response = "mpg",
                                  predictors.unique = round1.vars)
-print(round1.table)  # mpg ~ wt is the top model
+print(head(round1.table, n = 4))  # mpg ~ wt is the top model
 round1.model <- round1.table$model.object[[1]]  # Store the model object
 
 # Check out the residuals of the mpg ~ wt model
@@ -245,8 +239,8 @@ rm(round1.vars, round1.table, round1.model)
 
 Due to the shape of the residuals plot above, log transforms of the wt variable
 were explored. To save space those details are omitted here, but they can be
-found in the GitHub repo. While the log transforms did improve the model very
-slightly, ultimately the simpler model was selected.
+found in the [GitHub repo][1]. While the log transforms did improve the model
+very slightly, ultimately the simpler model was selected.
 
 
 ## Part 3b) Model Selection, Round 2
@@ -271,26 +265,25 @@ round2.vars <- mtcars %>%
 round2.table <- FitAndSortModels(data = mtcars, response = "mpg",
                                  predictors.unique = round2.vars,
                                  predictors.repeat = "wt")
-print(round2.table)  # mpg ~ wt + hp + wt * hp is the top model
+print(head(round2.table, n = 4))  # mpg ~ wt + hp + wt * hp is the top model
 round2.model <- round2.table$model.object[[1]]  # Store the model object
 rm(round2.interactions, round2.vars, round2.table)
 
 ```
 
 The code chunk above shows that `mpg ~ wt + hp + hp * wt` is the top performing
-model from this round. Next the `anova` function will be used to see if the
-addition of the extra terms is significant. Then the residuals will be checked
-as well.
+model from this round. The `anova` function and the residuals were checked for
+this model.
 
-```{r MS.round2b}
+```{r MS.round2b, results = "hide"}
 
+# Text results are hidden for this code chunk
 # Check anova results for the nested model series: mpg ~ wt + hp + hp * wt
 test1 <- lm(mpg ~ wt, mtcars)
 test2 <- lm(mpg ~ wt + hp, mtcars)
 test3 <- lm(mpg ~ wt + hp + hp * wt, mtcars)
-print(anova(test1, test2, test3))  # The test3 model is still significant
+anova(test1, test2, test3)  # Anova suggests keeping all of the terms
 rm(test1, test2, test3)
-# Anova suggests keeping all of the terms
 
 # Check out the residuals
 par(mfrow = c(1, 3))  # Setup plot space
