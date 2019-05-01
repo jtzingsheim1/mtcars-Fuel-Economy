@@ -6,9 +6,83 @@ output: pdf_document
 ---
 
 
-```{r setup, include=FALSE}
+```{r setup, include = FALSE}
 
 knitr::opts_chunk$set(echo = TRUE)
+
+# Create a function to fit, summarize, and sort models from input variables
+FitAndSortModels <- function(data, response, predictors.unique,
+                             predictors.repeat = NULL) {
+  # Assembles formulas to be used as input for lm, fits models, displays summary
+  # statistics side-by-side, and sorts the result by decreasing adj. R-squared
+  #
+  # Args:
+  #   data: the data set containing the variables, passed to lm
+  #   response: A chr vector of the variable to be predicted by the others
+  #   predictors.unique: A chr vector of variables to iterate (fit 1 model each)
+  #   predictors.repeat: A chr vector of variables to repeat in all models
+  #
+  # Returns:
+  #   A tibble containing the model formulas, model objects, and summary stats
+  #
+  # First build a vector of formulas from the character vectors of variables
+  formula.vector <- MakeLmInput(response = response,
+                                predictors.unique = predictors.unique,
+                                predictors.repeat = predictors.repeat)
+  # Next make a tibble which stores the model results alongside the formulas
+  table.1 <- tibble(model.name = formula.vector) %>%
+    mutate(model.object = map(model.name, lm, data = data))
+  # Next make a tibble which collects summary statistics for each model
+  table.2 <- table.1$model.object %>%  # List of the models
+    map(GetModelStats) %>%  # Apply function to each element, output as list
+    bind_rows()  # Condense the list down to a tibble
+  # Lastly bind the two tibbles together and sort by decreasing adj. R-Squared
+  result <- bind_cols(table.1, table.2) %>%
+    arrange(desc(Ad.R.Squared))
+  result  # Return the tibble
+}
+
+# Create a function to assemble lm formulas from input varibles
+MakeLmInput <- function(response, predictors.unique, predictors.repeat = NULL) {
+  # Assembles character vectors into formulas to be used as input for lm
+  #
+  # Args:
+  #   response: A chr vector of the variable to be predicted by the others
+  #   predictors.unique: A chr vector of variables to iterate (fit 1 model each)
+  #   predictors.repeat: A chr vector of variables to appear in all models
+  #
+  # Returns:
+  #   A character vector of "formulas" which can be coerced into actual
+  #   formulas by lm.
+  #
+  # The pasting is slightly different depending if any variables will be
+  # repeated in all the models, the if statement below handles this
+  if (is.null(predictors.repeat)) {
+    repeated.portion <- paste(response, "~") # Looks like "mpg ~"
+    separator <- " "  # Additional varible is added to the right with a space
+  } else {
+    repeated.portion <- paste(predictors.repeat, collapse = " + ") %>%
+      paste(response, ., sep = " ~ ")  # Looks like "mpg ~ var"
+    separator <- " + "  # Additonal variable is added to the right with "+"
+  }
+  # The variables are pasted below, the repeated portion is recycled for each of
+  # the unique predictors. The output vector has length(predictors.unique)
+  paste(repeated.portion, predictors.unique, sep = separator)
+}
+
+# Create a function to collect summary statistics for an individual model object
+GetModelStats <- function(model) {
+  # Returns a tibble of stats for given model object
+  #
+  # Args:
+  #   model: an object containing results returned by a model function (e.g. lm)
+  #
+  # Returns:
+  #   A tibble object of the R-Squared, Adj. R-Squared, and p-value of the model
+  tibble(R.Squared = summary(model)$r.squared,
+         Ad.R.Squared = summary(model)$adj.r.squared,
+         model.pvalue = anova(model)$`Pr(>F)`[[1]])  # Easier to get from anova
+}
 
 ```
 
@@ -39,8 +113,16 @@ was quantified, it is important to note that it is likely due to random chance.
 
 ## Part 1) Loading and Pre-processing the Data
 
-First the necessary packages are loaded along with the data (functions are
-described later).
+Before beginning it should be noted that the assignment instructions specify a
+maximum length for this report, so in the interest of conserving space some text
+and figure output will be suppressed throughout the report. When output is
+suppressed it will be noted at the beginning of the code chunk, and the output
+will be described as comments. Additionally, three functions were written to
+faciliate model selection, and to conserve space the code for these functions is
+not shown in this report. If interested the functions can be viewed in the
+GitHub repo for this project submission here.
+
+The first step in the analysis loads the necessary packages and data.
 
 ```{r loading, message = FALSE}
 
@@ -61,11 +143,6 @@ is clear that there is a mix of numeric, categorical, and discrete variables
 here. The help document can provide additional information on the descriptions,
 units, and coding of the factor variables. The next code chunk will assess the
 discrete variables and convert the data types as needed.
-
-The assignment instructions specify a maximum length for this report, so in the
-interest of conserving space, some text and figure output will be suppressed
-throughout the report. When output is suppressed it will be noted at the
-beginning of the code chunk and output will be described as comments.
 
 ```{r preprocessing, fig.show = "hide"}
 
@@ -140,20 +217,21 @@ The regression model must correct for these interactions and isolate the effect
 of the transmission type on fuel economy.
 
 The `vif` function can be used to demonstrate how correlated the variables are
-to eachother. In the code chunk below, one can see that the minimum variance
-inflation factor of any varible is 4.98 which is already high. The average is
-12.7, and the maximum is 23.5, so this confirms that these variables tend to be
-highly correlated with each other.
+to eachother. In the code chunk below, one can see that the variance inflation
+factors range from 4.98 to 23.5, so these variables tend to be highly correlated
+with each other.
 
 ```{r EDA.cov2, fig.show = "hide"}
 
 # In this code chunk figure output is suppressed
 # Check the variance inflation factors for all variables 
-lm(mpg ~ cyl + disp + hp + drat + wt + qsec + vs + am + gear + carb,
-   data = mtcars) %>%  # Fit a model of all variables
-  vif() %>%  # Apply vif function to the model
+vifs <- lm(mpg ~ cyl + disp + hp + drat + wt + qsec + vs + am + gear + carb,
+           data = mtcars) %>%  # Fit a model of all variables
+  vif()  # Apply vif function to the model
+vifs[, 1] %>%
   summary() %>%
   print()
+rm(vifs)
 
 # Check how mpg varies with the other variables
 # It was shown above that mpg decreases with number of cylinders, as expected
@@ -204,6 +282,45 @@ caution when considering models.
 Based on the checks above and general knowledge about the variables, seventeen
 interaction effects will be considered in the analysis. The complete list can be
 found in the model selection section below.
+
+
+## Part 3a) Model Selection, Round 1
+
+The model was built up sequentially with the idea of forward selection in mind.
+First the variables were checked to see which had the strongest relationship
+with mpg by. To facilitate model selection a function called `FitAndSortModels`
+was written which takes variables as input, fits models, collects summary
+statistics, and sorts the models by performance. The code for this function is
+not shown, but its input and output is shown below.
+
+```{r MS.round1}
+
+# First check which variable has the strongest relationship with mpg by itself
+# Collect all the predictor variables into a character vector
+round1.vars <- mtcars %>%
+  select(-vehicle, -mpg) %>%  # Drop the non-predictor variables
+  names()
+# Fit, summarize, and sort a series of models
+round1.table <- FitAndSortModels(data = mtcars, response = "mpg",
+                                 predictors.unique = round1.vars)
+print(round1.table)  # mpg ~ wt is the top model
+round1.model <- round1.table$model.object[[1]]  # Store the model object
+
+# Check out the residuals of the mpg ~ wt model
+par(mfrow = c(1, 2))  # Setup plot space
+hist(residuals(round1.model))  # Right skew, ranges from -4.54 to 6.87
+plot(residuals(round1.model) ~ mtcars$wt)  # V shape high at ends low in center
+rm(round1.vars, round1.table, round1.model)
+
+```
+
+Due to the shape of the residuals plot above, log transforms of the wt variable
+were explored. To save space those details are omitted here, but they can be
+found in the GitHub repo. While the log transforms did improve the model very
+slightly, ultimately the simpler model was selected.
+
+
+
 
 
 
