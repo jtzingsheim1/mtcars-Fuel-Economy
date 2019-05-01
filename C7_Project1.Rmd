@@ -288,7 +288,7 @@ found in the model selection section below.
 
 The model was built up sequentially with the idea of forward selection in mind.
 First the variables were checked to see which had the strongest relationship
-with mpg by. To facilitate model selection a function called `FitAndSortModels`
+with `mpg`. To facilitate model selection a function called `FitAndSortModels`
 was written which takes variables as input, fits models, collects summary
 statistics, and sorts the models by performance. The code for this function is
 not shown, but its input and output is shown below.
@@ -320,12 +320,88 @@ found in the GitHub repo. While the log transforms did improve the model very
 slightly, ultimately the simpler model was selected.
 
 
+## Part 3b) Model Selection, Round 2
+
+The next round of model selection will consider interaction effects along with
+the main variables.
+
+```{r MS.round2a}
+
+# Build a character vector of the interaction terms
+round2.interactions <- c("cyl * disp", "disp * hp", "disp * wt", "disp * qsec",
+                          "hp * wt", "hp * carb", "hp * qsec", "drat * wt",
+                          "drat * qsec", "wt * qsec", "wt * vs", "wt * am",
+                          "wt * gear", "wt * carb", "qsec * am", "qsec * gear",
+                          "qsec * carb")
+# Consolidate into a single character vector of variables
+round2.vars <- mtcars %>%
+  select(-vehicle, -mpg, -wt) %>%  # Reduce to only the repeated vars
+  names() %>%  # Extract main variables
+  c(round2.interactions)  # Add in interaction effects
+# Fit, summarize, and sort a series of models
+round2.table <- FitAndSortModels(data = mtcars, response = "mpg",
+                                 predictors.unique = round2.vars,
+                                 predictors.repeat = "wt")
+print(round2.table)  # mpg ~ wt + hp + wt * hp is the top model
+round2.model <- round2.table$model.object[[1]]  # Store the model object
+rm(round2.interactions, round2.vars, round2.table)
+
+```
+
+The code chunk above shows that `mpg ~ wt + hp + hp * wt` is the top performing
+model from this round. Next the `anova` function will be used to see if the
+addition of the extra terms is significant. Then the residuals will be checked
+as well.
+
+```{r MS.round2b}
+
+# Check anova results for the nested model series: mpg ~ wt + hp + hp * wt
+test1 <- lm(mpg ~ wt, mtcars)
+test2 <- lm(mpg ~ wt + hp, mtcars)
+test3 <- lm(mpg ~ wt + hp + hp * wt, mtcars)
+print(anova(test1, test2, test3))  # The test3 model is still significant
+rm(test1, test2, test3)
+# Anova suggests keeping all of the terms
+
+# Check out the residuals
+par(mfrow = c(1, 3))  # Setup plot space
+hist(residuals(round2.model))  # Right skew, ranges from -3.06 to 4.55
+plot(residuals(round2.model) ~ mtcars$wt)  # Looks like random noise
+plot(residuals(round2.model) ~ mtcars$hp)  # Somewhat triangular
+
+```
+
+The `anova` results above suggest keeping all three terms in the model. No
+significant pattern is noticed in the residuals either. An additional round of
+model selection was performed where 24 models were fit each with one additional
+term to the round 2 model. None of the additions improved the model enough to
+pass an Anova test, but to conserve space these results will not be shown here.
+Now that the model has been identified the original questions can be addressed.
 
 
+## Part 4) Conclusions
 
+The assignment instructions ask:
 
+>1. Is an automatic or manual transmission better for fuel economy
+2. Quantify the impact of transmission type on fuel economy
 
+This is somewhat of a trick question since the data suggest that the type of
+transmission does not have a significant impact on fuel economy. This can be
+shown by adding `am` to the model and checking `anova`.
 
+```{r conclusion}
 
+part4.model <- lm(mpg ~ hp + wt + hp * wt + am, data = mtcars)
+print(summary(part4.model))  # coef of amManual is 0.13, pvalue is 0.9259
+print(anova(round2.model, part4.model))  # p-value 0.93
 
+```
+
+The code chunk above shows that once the `wt` and `hp` variables are controlled
+for that the impact of `am` is both small and insignificant, and with a pvalue
+of 0.9259 there is little uncertainty about this. If one includes the variable
+anyways there appears to be a 0.13 mpg improvement when using a manual
+transimission instead of automatic, but this observation is very likely due to
+chance.
 
