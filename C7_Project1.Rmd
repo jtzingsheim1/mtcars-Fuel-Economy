@@ -3,6 +3,7 @@ title: "The Impact of Transmission Type on Fuel Economy in the mtcars Dataset"
 author: "Justin Z"
 date: "April 29, 2019"
 output: pdf_document
+mainfont: calibri
 ---
 
 
@@ -103,12 +104,14 @@ with the `mtcars` data set to answer these questions:
 The objective of this analysis was to determine the impact of transmission type
 on fuel economy in the `mtcars` data set. The data were loaded into R and
 pre-processed. Exploratory data analysis was performed, and potential
-interaction effects were identified. Model selection progressed in stages, and
+interaction effects were identified. In the model selection phase the goal was
+to identify the model that best predicted fuel economy so that the role of
+transmission type could be assessed. Model selection progressed in stages, and
 the best model for predicting fuel economy was found to take the form of
 `mpg ~ hp + wt + hp * wt`. Adding the `am` variable to this model did not
 significantly improve the model, so it was concluded that transmission type does
-not have a significant impact on fuel economy in this data set. While the impact
-was quantified, it is important to note that it is likely due to random chance.
+not have a significant impact on fuel economy in this data set. The impact was
+quantified, but it is important to note that it is likely due to random chance.
 
 
 ## Part 1) Loading and Pre-processing the Data
@@ -120,7 +123,9 @@ suppressed it will be noted at the beginning of the code chunk, and the output
 will be described as comments. Additionally, three functions were written to
 faciliate model selection, and to conserve space the code for these functions is
 not shown in this report. If interested the functions can be viewed in the
-GitHub repo for this project submission here.
+[GitHub repo][1] for this project submission.
+
+[1]: https://github.com/jtzingsheim1/mtcars-Fuel-Economy "GitHub repo"
 
 The first step in the analysis loads the necessary packages and data.
 
@@ -253,10 +258,10 @@ plot(mtcars$mpg ~ mtcars$vs)  # Straight appears to have a significantly higher
 
 A few of the interesting notes above were followed up in the analysis. In the
 interest of conserving space those details will not be outlined here. If
-interested the complete EDA portion can be found on the GitHub repo for this
-project submission here. In summary, the unexpected results above are no longer
-present once other factors are controlled for. In the final EDA code chunk a few
-additional covariations are explored.
+interested the complete EDA portion can be found on the [GitHub repo][1] for
+this project submission here. In summary, the unexpected results above are no
+longer present once other factors are controlled for. In the final EDA code
+chunk a few additional covariations are explored.
 
 ```{r EDA.cov3, fig.show = "hide"}
 
